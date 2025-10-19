@@ -1,42 +1,79 @@
+// lib/providers/food_tracker_state.dart
 import 'package:flutter/material.dart';
 import '../models/food_item.dart';
+import '../services/pocketbase_service.dart';
 
 class FoodTrackerState extends ChangeNotifier {
-  String selectedCategory = 'all';
-  String searchQuery = '';
+  final PocketBaseService _service = PocketBaseService();
 
-  final List<FoodItem> _allItems = [
-    FoodItem('Tomatoes', 'vegetables', '3 pcs', 'Best before Nov 28', 'in fridge', '🍅'),
-    FoodItem('Potatoes', 'vegetables', '5 pcs', 'Best before Dec 15', 'in cupboard', '🥔'),
-    FoodItem('Cabbage', 'vegetables', '2 pcs', 'Best before Dec 4', 'in fridge', '🥬'),
-    FoodItem('Broccoli', 'vegetables', '4 pcs', 'Best before Nov 30', 'in fridge', '🥦'),
-    FoodItem('Chicken Breast', 'meat', '2 packs', 'Best before Dec 1', 'in freezer', '🍗'),
-    FoodItem('Milk', 'dairy', '2 bottles', 'Best before Nov 25', 'in fridge', '🥛'),
-    FoodItem('Apples', 'fruit', '6 pcs', 'Best before Dec 10', 'in fridge', '🍎'),
-  ];
+  // Internal state
+  List<FoodItem> _allItems = [];
+  bool _isLoading = true;
+  String _selectedCategory = 'all';
+  String _searchQuery = '';
 
+  // Getters
+  bool get isLoading => _isLoading;
+  String get selectedCategory => _selectedCategory;
   List<FoodItem> get filteredItems {
     return _allItems.where((item) {
       final matchesCategory =
-          selectedCategory == 'all' || item.category == selectedCategory;
+          _selectedCategory == 'all' || item.category == _selectedCategory;
       final matchesSearch =
-          item.name.toLowerCase().contains(searchQuery.toLowerCase());
+          item.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
   }
 
+  // Constructor
+  FoodTrackerState() {
+    fetchInventory();
+    _service.subscribeToInventoryChanges(fetchInventory);
+  }
+
+  @override
+  void dispose() {
+    _service.unsubscribe();
+    super.dispose();
+  }
+
+  // --- Methods ---
+
+  Future<void> fetchInventory() async {
+    _isLoading = true;
+    notifyListeners();
+
+    _allItems = await _service.getInventoryItems();
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
   void setCategory(String category) {
-    selectedCategory = category;
+    _selectedCategory = category;
     notifyListeners();
   }
 
   void updateSearch(String query) {
-    searchQuery = query;
+    _searchQuery = query;
     notifyListeners();
   }
 
-  void addItem(FoodItem item) {
-    _allItems.add(item);
-    notifyListeners();
+  Future<void> addItem(FoodItem item) async {
+    try {
+      await _service.addInventoryItem(item);
+      // Real-time subscription will handle the update
+    } catch (e) {
+      print("Failed to add item: $e");
+    }
+  }
+
+  Future<void> deleteItem(String id) async {
+    try {
+      await _service.deleteInventoryItem(id);
+      // Real-time subscription will handle the update
+    } catch (e) {
+      print("Failed to delete item: $e");
+    }
   }
 }
