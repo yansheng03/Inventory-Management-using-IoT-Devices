@@ -1,7 +1,6 @@
 // lib/utils/emoji_picker.dart
 
 class EmojiPicker {
-  
   // --- EMOJI MAPPING ---
   // Add keywords and emojis here
   static const Map<String, String> _fruitEmojis = {
@@ -52,19 +51,13 @@ class EmojiPicker {
     String lowerName = itemName.toLowerCase();
 
     // 1. Get the correct map for the category
-    Map<String, String> emojiMap = {};
-    switch (category) {
-      case 'fruit':
-        emojiMap = _fruitEmojis;
-        break;
-      case 'vegetables':
-        emojiMap = _vegEmojis;
-        break;
-      case 'meat':
-        emojiMap = _meatEmojis;
-        break;
-      // Add other category maps here
-    }
+    Map<String, String> emojiMap = switch (category) {
+      'fruit' => _fruitEmojis,
+      'vegetables' => _vegEmojis,
+      'meat' => _meatEmojis,
+      _ => {}, // Default to an empty map
+    };
+    // Add other category maps here
 
     // 2. Find a matching keyword
     for (var key in emojiMap.keys) {

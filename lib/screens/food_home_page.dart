@@ -1,9 +1,10 @@
-// lib/screens/food_home_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_tracker_state.dart';
 import '../widgets/add_food_dialog.dart';
 import '../widgets/category_chip.dart';
+import 'device_page.dart';   // <-- Import DevicePage
+import 'profile_page.dart';  // <-- Import ProfilePage
 
 class FoodHomePage extends StatefulWidget {
   const FoodHomePage({super.key});
@@ -14,6 +15,44 @@ class FoodHomePage extends StatefulWidget {
 
 class _FoodHomePageState extends State<FoodHomePage> {
   int _selectedIndex = 1;
+  final ScrollController _scrollController = ScrollController();
+  
+  // A map to hold a key for each category chip for scrolling
+  late Map<String, GlobalKey> _categoryKeys;
+
+  // List of categories to generate keys for
+  final List<String> _categories = [
+    'all', 'vegetables', 'meat', 'fruit', 'dairy', 
+    'drinks', 'packaged', 'condiments', 'others'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _categoryKeys = { for (var category in _categories) category: GlobalKey() };
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _onCategoryTap(String category) {
+    // Set the category in the state
+    context.read<FoodTrackerState>().setCategory(category);
+    
+    // Scroll the selected chip into view
+    final key = _categoryKeys[category];
+    if (key != null && key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.5, // Center the chip
+      );
+    }
+  }
 
   void _onNavTap(int index) => setState(() => _selectedIndex = index);
 
@@ -21,160 +60,141 @@ class _FoodHomePageState extends State<FoodHomePage> {
   Widget build(BuildContext context) {
     var appState = context.watch<FoodTrackerState>();
 
-    Widget currentScreen;
-    if (_selectedIndex == 0) {
-      currentScreen = const Center(
-          child: Text('Device Page – Connect your IoT fridge here'));
-    } else if (_selectedIndex == 2) {
-      currentScreen =
-          const Center(child: Text('Profile Page – User details and settings'));
-    } else {
-      currentScreen = Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              onChanged: appState.updateSearch,
-              // --- FIXED: Restored original decoration ---
-              decoration: InputDecoration(
-                hintText: 'Search food...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              // --- END OF FIX ---
-            ),
-          ),
-          // Category Chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  CategoryChip(
-                      label: 'all',
-                      selected: appState.selectedCategory == 'all'),
-                  CategoryChip(
-                      label: 'vegetables',
-                      selected: appState.selectedCategory == 'vegetables'),
-                  CategoryChip(
-                      label: 'meat',
-                      selected: appState.selectedCategory == 'meat'),
-                  CategoryChip(
-                      label: 'fruit',
-                      selected: appState.selectedCategory == 'fruit'),
-                  CategoryChip(
-                      label: 'dairy',
-                      selected: appState.selectedCategory == 'dairy'),
-                  CategoryChip(
-                      label: 'drinks',
-                      selected: appState.selectedCategory == 'drinks'),
-                  CategoryChip(
-                      label: 'packaged',
-                      selected: appState.selectedCategory == 'packaged'),
-                  CategoryChip(
-                      label: 'condiments',
-                      selected: appState.selectedCategory == 'condiments'),
-                  CategoryChip(
-                      label: 'others',
-                      selected: appState.selectedCategory == 'others'),
-                ],
-              ),
-            ),
-          ),
-          // Item List
-          Expanded(
-            child: appState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : appState.filteredItems.isEmpty
-                    ? const Center(child: Text("No items found."))
-                    : RefreshIndicator(
-                        onRefresh: appState.fetchInventory,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: appState.filteredItems.length,
-                          separatorBuilder: (_, __) => const Divider(),
-                          itemBuilder: (context, index) {
-                            final item = appState.filteredItems[index];
-                            final dateString =
-                                item.lastDetected.toLocal().toString().split(' ')[0];
-                            
-                            return ListTile(
-                              // Display the computed icon
-                              leading: Text(item.icon,
-                                  style: const TextStyle(fontSize: 28)),
-                              title: Text(item.name,
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w500)),
-                              subtitle: Text("Last seen: $dateString"),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    item.quantity.toString(),
-                                    style: Theme.of(context).textTheme.titleLarge,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline,
-                                        color: Colors.red),
-                                    onPressed: () {
-                                      _showDeleteDialog(context, item.id, item.name);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-          ),
-        ],
-      );
-    }
+    // This list holds the three main pages of the app
+    final List<Widget> pages = [
+      const DevicePage(),   // <-- Use the new DevicePage
+      _buildHomePageContent(appState), // Home page content is built in a helper
+      const ProfilePage(),  // <-- Use the new ProfilePage
+    ];
 
     return Scaffold(
       appBar: AppBar(
-        // --- FIXED: Restored original properties ---
-        title: const Text('Your Food',
+        title: const Text('Your Items',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 26)),
-        backgroundColor: Colors.grey[50],
-        surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        // --- END OF FIX ---
       ),
-      body: currentScreen,
+      body: pages[_selectedIndex], // Display the selected page
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
               onPressed: () =>
                   showDialog(context: context, builder: (_) => const AddFoodDialog()),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: const Icon(Icons.add, color: Colors.white),
+              child: const Icon(Icons.add),
             )
           : null,
       bottomNavigationBar: NavigationBar(
-        // --- FIXED: Restored original properties ---
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.devices_other), label: 'Device'),
-          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+              icon: Icon(Icons.devices_other_outlined),
+              selectedIcon: Icon(Icons.devices_other),
+              label: 'Device'),
           NavigationDestination(
-              icon: Icon(Icons.person_outline), label: 'Profile'),
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile'),
         ],
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onNavTap,
-        backgroundColor: Colors.white,
-        indicatorColor: Colors.greenAccent.withOpacity(0.3),
-        // --- END OF FIX ---
       ),
+    );
+  }
+
+  // Helper method to build the home page content
+  Widget _buildHomePageContent(FoodTrackerState appState) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: TextField(
+            onChanged: appState.updateSearch,
+            decoration: InputDecoration(
+              hintText: 'Search food...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        // --- Category Chips with Scrolling ---
+        SizedBox(
+          height: 50,
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _categories.length,
+            itemBuilder: (context, index) {
+              final category = _categories[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                // We wrap the chip in a custom GestureDetector
+                child: GestureDetector(
+                  onTap: () => _onCategoryTap(category),
+                  child: CategoryChip(
+                    key: _categoryKeys[category], // Assign the key
+                    label: category,
+                    selected: appState.selectedCategory == category,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // --- Item List ---
+        Expanded(
+          child: appState.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : appState.filteredItems.isEmpty
+                  ? const Center(child: Text("No items found."))
+                  : RefreshIndicator(
+                      onRefresh: appState.fetchInventory,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: appState.filteredItems.length,
+                        separatorBuilder: (_, _) => const Divider(),
+                        itemBuilder: (context, index) {
+                          final item = appState.filteredItems[index];
+                          final dateString =
+                              item.lastDetected.toLocal().toString().split(' ')[0];
+                          
+                          return ListTile(
+                            leading: Text(item.icon,
+                                style: const TextStyle(fontSize: 28)),
+                            title: Text(item.name,
+                                style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500)),
+                            subtitle: Text("Last seen: $dateString"),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.quantity.toString(),
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  onPressed: () {
+                                    _showDeleteDialog(context, item.id, item.name);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+        ),
+      ],
     );
   }
 

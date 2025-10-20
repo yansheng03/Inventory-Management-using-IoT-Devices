@@ -30,7 +30,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
     'packaged',
     'drinks',
     'condiments',
-    'others'
+    'others',
   ];
 
   Future<void> _submitForm() async {
@@ -85,7 +85,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                   decoration: const InputDecoration(labelText: 'Quantity'),
                   keyboardType: TextInputType.number,
                   inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -99,14 +99,15 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   // --- CATEGORY LIST ---
                   // Build items from our category list
-                  items: _categories.map((category) {
-                    // Capitalize first letter for display
+                  items: _categories.map<DropdownMenuItem<String>>((
+                    String category,
+                  ) {
                     String displayText =
                         category[0].toUpperCase() + category.substring(1);
-                    return DropdownMenuItem(
+                    return DropdownMenuItem<String>(
                       value: category,
                       child: Text(displayText),
                     );
@@ -121,8 +122,9 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         ElevatedButton(
           onPressed: _isAdding ? null : _submitForm,
           child: _isAdding
