@@ -1,6 +1,9 @@
+// lib/screens/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/pocketbase_service.dart'; // <-- IMPORT
+import 'login_page.dart'; // <-- IMPORT
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -9,6 +12,11 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+
+    // --- Get user info from the service ---
+    final pbService = PocketBaseService();
+    final user = pbService.currentUser;
+    // --- END ---
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -24,38 +32,41 @@ class ProfilePage extends StatelessWidget {
                   radius: 50,
                   backgroundColor: Colors.white,
                   child: Icon(Icons.person, size: 60, color: Colors.grey),
-                  // backgroundImage: NetworkImage('URL_TO_IMAGE'), // Can add user image later
                 ),
                 const SizedBox(height: 16),
+                // --- DYNAMIC USERNAME/NAME ---
                 Text(
-                  'Yan Sheng', // Replace with dynamic user name
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  user?.data['name'] ?? 'User', // Shows 'name' field from data map
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
+                // --- CORRECTED EMAIL ACCESS ---
                 Text(
-                  'yansheng@example.com', // Replace with dynamic user email
-                  style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+                  user?.data['email'] ?? 'No email', // Shows email from data map
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(color: Colors.grey.shade700),
                 ),
               ],
             ),
           ),
 
           // -- Account Section --
-          _buildSectionHeader('Account'),
+          _buildSectionHeader('Account'), // Use helper method
           ListTile(
             leading: const Icon(Icons.edit_outlined),
             title: const Text('Edit Profile'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+            onTap: () {}, // You can implement this later
           ),
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: const Text('Change Password'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+            onTap: () {}, // You can implement this later
           ),
 
           // -- Settings Section --
-          _buildSectionHeader('Settings'),
+          _buildSectionHeader('Settings'), // Use helper method
           SwitchListTile(
             secondary: const Icon(Icons.dark_mode_outlined),
             title: const Text('Dark Mode'),
@@ -83,7 +94,8 @@ class ProfilePage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: TextButton.icon(
               icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('Log Out', style: TextStyle(color: Colors.red)),
+              label:
+                  const Text('Log Out', style: TextStyle(color: Colors.red)),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.all(16),
                 shape: RoundedRectangleBorder(
@@ -91,7 +103,17 @@ class ProfilePage extends StatelessWidget {
                   side: BorderSide(color: Colors.red.withAlpha(128)),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () async {
+                await pbService.logout(); // Call logout from service
+
+                if (!context.mounted) return;
+
+                // Navigate back to login page and remove all routes
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              },
             ),
           ),
           const SizedBox(height: 32),
@@ -100,6 +122,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // Helper method to build section headers
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),

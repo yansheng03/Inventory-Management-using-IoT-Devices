@@ -1,10 +1,12 @@
+// lib/screens/food_home_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/food_item.dart'; // <-- IMPORT
 import '../providers/food_tracker_state.dart';
 import '../widgets/add_food_dialog.dart';
 import '../widgets/category_chip.dart';
-import 'device_page.dart';   // <-- Import DevicePage
-import 'profile_page.dart';  // <-- Import ProfilePage
+import 'device_page.dart';   
+import 'profile_page.dart';  
 
 class FoodHomePage extends StatefulWidget {
   const FoodHomePage({super.key});
@@ -17,7 +19,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
   int _selectedIndex = 1;
   final ScrollController _scrollController = ScrollController();
   
-  // A map to hold a key for each category chip for scrolling
   late Map<String, GlobalKey> _categoryKeys;
 
   // List of categories to generate keys for
@@ -30,6 +31,12 @@ class _FoodHomePageState extends State<FoodHomePage> {
   void initState() {
     super.initState();
     _categoryKeys = { for (var category in _categories) category: GlobalKey() };
+
+    // --- NEW: Fetch inventory when this page loads ---
+    // This ensures data is loaded after a successful login.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FoodTrackerState>().fetchInventory();
+    });
   }
 
   @override
@@ -56,6 +63,16 @@ class _FoodHomePageState extends State<FoodHomePage> {
 
   void _onNavTap(int index) => setState(() => _selectedIndex = index);
 
+  // --- NEW: Helper function to show edit dialog ---
+  void _showEditDialog(FoodItem item) {
+    showDialog(
+      context: context,
+      // Pass the item to the dialog
+      builder: (_) => AddFoodDialog(itemToEdit: item), 
+    );
+  }
+  // --- END NEW ---
+
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<FoodTrackerState>();
@@ -78,6 +95,7 @@ class _FoodHomePageState extends State<FoodHomePage> {
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
               onPressed: () =>
+                  // Show dialog without an item to add a new one
                   showDialog(context: context, builder: (_) => const AddFoodDialog()),
               child: const Icon(Icons.add),
             )
@@ -172,6 +190,8 @@ class _FoodHomePageState extends State<FoodHomePage> {
                                     fontSize: 18,
                                     fontWeight: FontWeight.w500)),
                             subtitle: Text("Last seen: $dateString"),
+                            // --- UPDATED: Add onTap for editing ---
+                            onTap: () => _showEditDialog(item),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [

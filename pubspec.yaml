@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   provider: ^6.1.5
   pocketbase: ^0.23.0+1
+  shared_preferences: ^2.2.3
+  http: ^1.2.1
+  multicast_dns: ^0.3.2+4
 
 dev_dependencies:
   flutter_test:

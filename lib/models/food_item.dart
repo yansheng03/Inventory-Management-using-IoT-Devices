@@ -8,6 +8,7 @@ class FoodItem {
   final int quantity;
   final DateTime lastDetected;
   final String icon; // <-- This is now a computed app-only field
+  final String? sourceDevice;
 
   FoodItem({
     required this.id,
@@ -16,6 +17,7 @@ class FoodItem {
     required this.quantity,
     required this.lastDetected,
     required this.icon, // <-- Add to constructor
+    this.sourceDevice,
   });
 
   // Factory to create a FoodItem from a PocketBase record
@@ -32,6 +34,7 @@ class FoodItem {
       // --- EMOJI LOGIC ---
       // Compute the icon based on name and category
       icon: EmojiPicker.getEmojiForItem(name, category),
+      sourceDevice: json['source_device'],
     );
   }
 
@@ -43,6 +46,8 @@ class FoodItem {
       'category': category,
       'quantity': quantity,
       'last_detected': lastDetected.toIso8601String(),
+      if (sourceDevice != null && sourceDevice!.isNotEmpty)
+        'source_device': sourceDevice,
     };
   }
 }
