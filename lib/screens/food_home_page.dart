@@ -1,12 +1,14 @@
 // lib/screens/food_home_page.dart
+
+import 'package:capstone_app/models/food_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/food_item.dart'; // <-- IMPORT
 import '../providers/food_tracker_state.dart';
-import '../widgets/add_food_dialog.dart';
+// Import our newly renamed dialog
+import '../widgets/food_item_dialog.dart'; 
 import '../widgets/category_chip.dart';
-import 'device_page.dart';   
-import 'profile_page.dart';  
+import 'device_page.dart';
+import 'profile_page.dart';
 
 class FoodHomePage extends StatefulWidget {
   const FoodHomePage({super.key});
@@ -21,7 +23,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
   
   late Map<String, GlobalKey> _categoryKeys;
 
-  // List of categories to generate keys for
   final List<String> _categories = [
     'all', 'vegetables', 'meat', 'fruit', 'dairy', 
     'drinks', 'packaged', 'condiments', 'others'
@@ -30,13 +31,10 @@ class _FoodHomePageState extends State<FoodHomePage> {
   @override
   void initState() {
     super.initState();
-    _categoryKeys = { for (var category in _categories) category: GlobalKey() };
-
-    // --- NEW: Fetch inventory when this page loads ---
-    // This ensures data is loaded after a successful login.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FoodTrackerState>().fetchInventory();
+      context.read<FoodTrackerState>().initialize();
     });
+    _categoryKeys = { for (var category in _categories) category: GlobalKey() };
   }
 
   @override
@@ -46,42 +44,37 @@ class _FoodHomePageState extends State<FoodHomePage> {
   }
   
   void _onCategoryTap(String category) {
-    // Set the category in the state
     context.read<FoodTrackerState>().setCategory(category);
     
-    // Scroll the selected chip into view
     final key = _categoryKeys[category];
     if (key != null && key.currentContext != null) {
       Scrollable.ensureVisible(
         key.currentContext!,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        alignment: 0.5, // Center the chip
+        alignment: 0.5,
       );
     }
   }
 
   void _onNavTap(int index) => setState(() => _selectedIndex = index);
 
-  // --- NEW: Helper function to show edit dialog ---
-  void _showEditDialog(FoodItem item) {
+  // --- NEW: Helper to show the dialog ---
+  void _showFoodItemDialog({FoodItem? item}) {
     showDialog(
       context: context,
-      // Pass the item to the dialog
-      builder: (_) => AddFoodDialog(itemToEdit: item), 
+      builder: (_) => FoodItemDialog(existingItem: item),
     );
   }
-  // --- END NEW ---
 
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<FoodTrackerState>();
 
-    // This list holds the three main pages of the app
     final List<Widget> pages = [
-      const DevicePage(),   // <-- Use the new DevicePage
-      _buildHomePageContent(appState), // Home page content is built in a helper
-      const ProfilePage(),  // <-- Use the new ProfilePage
+      const DevicePage(),
+      _buildHomePageContent(appState),
+      const ProfilePage(),
     ];
 
     return Scaffold(
@@ -91,12 +84,14 @@ class _FoodHomePageState extends State<FoodHomePage> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: pages[_selectedIndex], // Display the selected page
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: pages,
+      ),
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
-              onPressed: () =>
-                  // Show dialog without an item to add a new one
-                  showDialog(context: context, builder: (_) => const AddFoodDialog()),
+              // Use the new helper to show the dialog for ADDING
+              onPressed: () => _showFoodItemDialog(), 
               child: const Icon(Icons.add),
             )
           : null,
@@ -121,10 +116,10 @@ class _FoodHomePageState extends State<FoodHomePage> {
     );
   }
 
-  // Helper method to build the home page content
   Widget _buildHomePageContent(FoodTrackerState appState) {
     return Column(
       children: [
+        // ... (Search Bar and Category Chips are unchanged) ...
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: TextField(
@@ -140,7 +135,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
             ),
           ),
         ),
-        // --- Category Chips with Scrolling ---
         SizedBox(
           height: 50,
           child: ListView.builder(
@@ -152,11 +146,10 @@ class _FoodHomePageState extends State<FoodHomePage> {
               final category = _categories[index];
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
-                // We wrap the chip in a custom GestureDetector
                 child: GestureDetector(
                   onTap: () => _onCategoryTap(category),
                   child: CategoryChip(
-                    key: _categoryKeys[category], // Assign the key
+                    key: _categoryKeys[category],
                     label: category,
                     selected: appState.selectedCategory == category,
                   ),
@@ -165,14 +158,13 @@ class _FoodHomePageState extends State<FoodHomePage> {
             },
           ),
         ),
-        // --- Item List ---
         Expanded(
           child: appState.isLoading
               ? const Center(child: CircularProgressIndicator())
               : appState.filteredItems.isEmpty
                   ? const Center(child: Text("No items found."))
                   : RefreshIndicator(
-                      onRefresh: appState.fetchInventory,
+                      onRefresh: context.read<FoodTrackerState>().initialize,
                       child: ListView.separated(
                         padding: const EdgeInsets.all(16),
                         itemCount: appState.filteredItems.length,
@@ -190,8 +182,8 @@ class _FoodHomePageState extends State<FoodHomePage> {
                                     fontSize: 18,
                                     fontWeight: FontWeight.w500)),
                             subtitle: Text("Last seen: $dateString"),
-                            // --- UPDATED: Add onTap for editing ---
-                            onTap: () => _showEditDialog(item),
+                            // --- NEW: onTap for EDITING ---
+                            onTap: () => _showFoodItemDialog(item: item),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -218,8 +210,8 @@ class _FoodHomePageState extends State<FoodHomePage> {
     );
   }
 
-  // Helper function for delete confirmation
   void _showDeleteDialog(BuildContext context, String id, String name) {
+    // ... (This function is unchanged) ...
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

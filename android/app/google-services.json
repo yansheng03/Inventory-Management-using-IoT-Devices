@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "372541546387",
+    "project_id": "iot-inventory-management-7c555",
+    "storage_bucket": "iot-inventory-management-7c555.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:372541546387:android:f356d3db96b0c8a9e3d266",
+        "android_client_info": {
+          "package_name": "com.example.capstone_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATSQg3vQSU3SEprmQc6aI6fPrur6c5paY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

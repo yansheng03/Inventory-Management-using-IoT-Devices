@@ -1,18 +1,21 @@
 // lib/providers/food_tracker_state.dart
+
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../models/food_item.dart';
-import '../services/pocketbase_service.dart';
+import 'package:capstone_app/models/food_item.dart'; // <-- FIX: ADDED THIS IMPORT
+import 'package:capstone_app/services/firebase_service.dart';
 
 class FoodTrackerState extends ChangeNotifier {
-  final PocketBaseService _service = PocketBaseService();
+  final FirebaseService _service;
 
-  // Internal state
   List<FoodItem> _allItems = [];
-  bool _isLoading = false; // <-- Set to false
+  bool _isLoading = true;
   String _selectedCategory = 'all';
   String _searchQuery = '';
+  String _deviceId = '';
 
-  // Getters
+  StreamSubscription? _inventorySubscription;
+
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   List<FoodItem> get filteredItems {
@@ -25,39 +28,38 @@ class FoodTrackerState extends ChangeNotifier {
     }).toList();
   }
 
-  // Constructor
-  FoodTrackerState() {
-    // --- UPDATED ---
-    // Only subscribe if the user is already logged in.
-    // fetchInventory will be called by FoodHomePage when it loads.
-    if (_service.client.authStore.isValid) {
-      _service.subscribeToInventoryChanges(fetchInventory);
+  FoodTrackerState(this._service);
+
+  Future<void> initialize() async {
+    _isLoading = true;
+    notifyListeners();
+    _deviceId = await _service.getUserDevice() ?? '';
+    _allItems = [];
+    await _inventorySubscription?.cancel();
+    
+    if (_deviceId.isNotEmpty) {
+      _inventorySubscription = _service
+          .getInventoryStream(_deviceId)
+          .listen((items) {
+        _allItems = items;
+        _isLoading = false;
+        notifyListeners();
+      }, onError: (e) {
+        print("Error in inventory stream: $e");
+        _isLoading = false;
+        notifyListeners();
+      });
+    } else {
+      print("No device ID found during initialization.");
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   @override
   void dispose() {
-    _service.unsubscribe();
+    _inventorySubscription?.cancel();
     super.dispose();
-  }
-
-  // --- Methods ---
-
-  Future<void> fetchInventory() async {
-    // Don't run if user is not logged in
-    if (!_service.client.authStore.isValid) return; 
-
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      _allItems = await _service.getInventoryItems();
-    } catch (e) {
-      print("Error in fetchInventory (State): $e");
-    }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   void setCategory(String category) {
@@ -71,19 +73,20 @@ class FoodTrackerState extends ChangeNotifier {
   }
 
   Future<void> addItem(FoodItem item) async {
+    if (_deviceId.isEmpty) {
+      print("Cannot add item: No device ID.");
+      return;
+    }
     try {
-      await _service.addInventoryItem(item);
-      // Real-time subscription will handle the update
+      await _service.addFoodItem(item, _deviceId);
     } catch (e) {
       print("Failed to add item: $e");
     }
   }
 
-  // --- NEW: Update Method ---
   Future<void> updateItem(FoodItem item) async {
     try {
-      await _service.updateInventoryItem(item);
-      // Real-time subscription will handle the update
+      await _service.updateFoodItem(item);
     } catch (e) {
       print("Failed to update item: $e");
     }
@@ -91,8 +94,8 @@ class FoodTrackerState extends ChangeNotifier {
 
   Future<void> deleteItem(String id) async {
     try {
-      await _service.deleteInventoryItem(id);
-      // Real-time subscription will handle the update
+      // --- FIX: Renamed method to match the service ---
+      await _service.deleteFoodItem(id); 
     } catch (e) {
       print("Failed to delete item: $e");
     }

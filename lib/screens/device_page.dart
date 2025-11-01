@@ -1,234 +1,186 @@
 // lib/screens/device_page.dart
-import 'dart:typed_data'; // For image data
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/device_provider.dart'; // <-- Import new provider
-import '../providers/food_tracker_state.dart'; // <-- Import food state
 
-class DevicePage extends StatelessWidget {
+import 'package:flutter/material.dart';
+
+class DevicePage extends StatefulWidget {
   const DevicePage({super.key});
 
-  // --- NEW: Helper to show snapshot dialog ---
-  void _showSnapshotDialog(BuildContext context, Uint8List imageData) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Snapshot Result'),
-          content: Image.memory(imageData), // Display the image
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+  @override
+  State<DevicePage> createState() => _DevicePageState();
+}
+
+class _DevicePageState extends State<DevicePage> {
+  // --- State Variables ---
+  bool _isConnecting = false;
+  String _deviceStatus = 'Offline'; // e.g., 'Offline', 'Online', 'Door Open'
+  // String _lastVideoUrl = ''; // <-- FIX: REMOVED THIS UNUSED VARIABLE
+  bool _isTakingSnapshot = false;
+
+  // --- Methods ---
+
+  // TODO: Implement BLE connection logic
+  void _connectToDevice() {
+    setState(() => _isConnecting = true);
+    // Simulating connection delay
+    Future.delayed(const Duration(seconds: 2), () {
+      setState(() {
+        _isConnecting = false;
+        _deviceStatus = 'Online (Door Closed)';
+      });
+    });
+  }
+
+  // TODO: Implement HTTP request to Arduino /status
+  void _fetchDeviceStatus() {
+    // This would be an http.get('http://inventory-fridge.local/status')
+    // For now, we'll simulate a door open/close
+    setState(() {
+      if (_deviceStatus.contains('Closed')) {
+        _deviceStatus = 'Online (Door Open)';
+      } else {
+        _deviceStatus = 'Online (Door Closed)';
+      }
+    });
+  }
+
+  // TODO: Implement HTTP request to Arduino /snapshot
+  void _takeSnapshot() {
+    setState(() => _isTakingSnapshot = true);
+    // This would be an http.post('http://inventory-fridge.local/snapshot')
+    // Simulating a delay for the snapshot
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() => _isTakingSnapshot = false);
+      // Show a snackbar on success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Snapshot taken! (Simulated)')),
+      );
+    });
+  }
+
+  // TODO: Implement logic to get last video from Firebase Storage
+  void _viewLastVideo() {
+    // This would query Firebase Storage for the latest video
+    // and then open it, e.g., using a video_player package
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Loading last video... (Simulated)')),
     );
   }
-  // --- END NEW ---
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    // Use Consumer to react to changes in DeviceProvider
-    return Consumer<DeviceProvider>(
-      builder: (context, device, child) {
-        return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
-          body: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              Text(
-                'Connected Devices',
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              // Use the dynamic device card
-              _buildDeviceCard(context, device),
-              const SizedBox(height: 24),
-              Text(
-                'Actions',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Trigger Snapshot'),
-                subtitle: const Text('Force a new scan and show image'),
-                // Disable if no device or already communicating
-                enabled: device.isDeviceFound && !device.isCommunicating,
-                onTap: () async {
-                  bool success = await device.triggerSnapshot();
-                  if (success && context.mounted) {
-                    // Show the image
-                    if (device.latestSnapshot != null) {
-                      _showSnapshotDialog(context, device.latestSnapshot!);
-                    }
-                    // Also refresh inventory list
-                    context.read<FoodTrackerState>().fetchInventory();
-                  } else if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(device.error ?? 'Failed to get snapshot')),
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Device Information'),
-                subtitle: const Text('View IP address and status'),
-                enabled: device.isDeviceFound,
-                onTap: () {
-                   _showDeviceInfo(context, device);
-                },
-              ),
-              // Show communication errors
-              if (device.error != null && !device.isCommunicating)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    'Error: ${device.error!}',
-                    style: TextStyle(color: theme.colorScheme.error),
-                  ),
-                ),
-              // Show spinner while communicating
-              if (device.isCommunicating)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            // Change FAB to scan button
-            onPressed: device.isScanning ? null : () {
-              device.scanForDevice();
-            },
-            label: Text(device.isScanning ? 'Scanning...' : 'Scan for Device'),
-            icon: device.isScanning 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                : const Icon(Icons.search),
-          ),
-        );
-      },
-    );
-  }
 
-  // Updated to use dynamic data from the provider
-  Widget _buildDeviceCard(BuildContext context, DeviceProvider device) {
-    final theme = Theme.of(context);
-    
-    // Show a different card if no device is found
-    if (!device.isDeviceFound) {
-      return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(Icons.wifi_off, size: 40, color: Colors.grey.shade600),
-              const SizedBox(width: 16),
-              Expanded(
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
+            // --- Connection Card ---
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'No Device Found',
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Tap "Scan for Device" to connect',
-                      style: TextStyle(color: Colors.grey.shade700)
+                    Text('Device Connection',
+                        style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.circle,
+                              color: _deviceStatus == 'Offline'
+                                  ? Colors.red
+                                  : Colors.green,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(_deviceStatus,
+                                style: theme.textTheme.bodyLarge),
+                          ],
+                        ),
+                        ElevatedButton(
+                          // Disable button if not offline
+                          onPressed: _deviceStatus == 'Offline' ? _connectToDevice : null,
+                          child: _isConnecting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Connect'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // This card shows when a device is found
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.kitchen, size: 40, color: theme.colorScheme.primary),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        device.deviceName, // Use dynamic name
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: const BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Online', style: TextStyle(color: Colors.green.shade700)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  // Disable button while communicating
-                  onPressed: device.isCommunicating ? null : () {
-                    device.getLdrStatus();
-                  },
-                )
-              ],
             ),
-            const Divider(height: 32),
-            Text('IP Address: ${device.deviceIp}', style: const TextStyle(color: Colors.grey)),
-            Text('LDR Status: ${device.ldrStatus}', style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
+            
+            const SizedBox(height: 20),
 
-  // New helper to show device info
-  void _showDeviceInfo(BuildContext context, DeviceProvider device) {
-     showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Device Information'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Name: ${device.deviceName}'),
-            Text('IP Address: ${device.deviceIp}'),
-            Text('LDR Status: ${device.ldrStatus}'),
+            // --- Controls Card ---
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Live Controls', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      leading: const Icon(Icons.refresh),
+                      title: const Text('Refresh Status'),
+                      subtitle: const Text('Get door open/closed state'),
+                      onTap: _fetchDeviceStatus,
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.camera_alt_outlined),
+                      title: const Text('Take Manual Snapshot'),
+                      subtitle: const Text('Request a new photo now'),
+                      trailing: _isTakingSnapshot 
+                        ? const CircularProgressIndicator()
+                        : null,
+                      onTap: _isTakingSnapshot ? null : _takeSnapshot,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // --- Video Log Card ---
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Processing Log', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      leading: const Icon(Icons.videocam_outlined),
+                      title: const Text('View Last Processed Video'),
+                      subtitle: const Text('See the last recording sent for analysis'),
+                      onTap: _viewLastVideo,
+                    ),
+                    // TODO: Could add a ListView.builder here
+                    // to show a list of recent videos from Firebase Storage
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
-        ],
       ),
     );
   }

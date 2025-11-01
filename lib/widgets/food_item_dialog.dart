@@ -1,29 +1,29 @@
-// lib/widgets/add_food_dialog.dart
+// lib/widgets/food_item_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/food_item.dart';
-import '../providers/food_tracker_state.dart';
-import '../services/pocketbase_service.dart'; // <-- Ensure PocketBaseService is imported
-// import '../providers/device_provider.dart'; // No longer needed here
-import '../utils/emoji_picker.dart';
+import 'package:capstone_app/models/food_item.dart';
+import 'package:capstone_app/providers/food_tracker_state.dart';
 
-class AddFoodDialog extends StatefulWidget {
-  final FoodItem? itemToEdit;
-  const AddFoodDialog({super.key, this.itemToEdit});
+class FoodItemDialog extends StatefulWidget {
+  // This optional item is the key to editing
+  final FoodItem? existingItem;
+  
+  const FoodItemDialog({super.key, this.existingItem});
 
   @override
-  State<AddFoodDialog> createState() => _AddFoodDialogState();
+  State<FoodItemDialog> createState() => _FoodItemDialogState();
 }
 
-class _AddFoodDialogState extends State<AddFoodDialog> {
+class _FoodItemDialogState extends State<FoodItemDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _quantityController = TextEditingController();
-  String _selectedCategory = 'vegetables';
+  String _selectedCategory = 'vegetables'; // Default category
 
-  bool _isProcessing = false;
-  bool get _isEditing => widget.itemToEdit != null;
+  bool _isAdding = false;
+  bool get _isEditing => widget.existingItem != null;
 
   final List<String> _categories = [
     'vegetables', 'fruit', 'meat', 'dairy',
@@ -33,11 +33,12 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   @override
   void initState() {
     super.initState();
+    
+    // If we are editing, pre-fill the form fields
     if (_isEditing) {
-      final item = widget.itemToEdit!;
-      _nameController.text = item.name;
-      _quantityController.text = item.quantity.toString();
-      _selectedCategory = item.category;
+      _nameController.text = widget.existingItem!.name;
+      _quantityController.text = widget.existingItem!.quantity.toString();
+      _selectedCategory = widget.existingItem!.category;
     }
   }
 
@@ -50,68 +51,49 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isProcessing = true);
+      setState(() => _isAdding = true);
 
       final quantity = int.tryParse(_quantityController.text) ?? 0;
       final name = _nameController.text;
+      
+      final foodTrackerState = context.read<FoodTrackerState>();
 
-      // --- START OF MODIFICATION ---
+      try {
+        if (_isEditing) {
+          // --- EDIT LOGIC ---
+          // Create an updated item model with the existing ID
+          final updatedItem = FoodItem(
+            id: widget.existingItem!.id, // Keep the original ID
+            name: name,
+            category: _selectedCategory,
+            quantity: quantity,
+            lastDetected: DateTime.now(), // Update timestamp on edit
+          );
+          await foodTrackerState.updateItem(updatedItem);
 
-      // V V V RESTORE THESE LINES V V V
-      // --- Get the current user's linked device ID ---
-      final pbService = PocketBaseService(); // Get the singleton instance
-      final deviceId = pbService.getCurrentUserDeviceID(); // Fetch the ID
+        } else {
+          // --- ADD LOGIC ---
+          // Create a new item (ID will be set by the model)
+          final newItem = FoodItem(
+            name: name,
+            category: _selectedCategory,
+            quantity: quantity,
+            lastDetected: DateTime.now(),
+          );
+          // This now calls our new "upsert" logic
+          await foodTrackerState.addItem(newItem); 
+        }
 
-      // V V V REMOVE THIS LINE V V V
-      // const String deviceId = DeviceProvider.dummyDeviceId; // Remove dummy constant usage
-
-      // V V V RESTORE THIS CHECK V V V
-      // --- Check if device ID was found ---
-      if (deviceId == null || deviceId.isEmpty) {
-         print("Error: Could not find linked device ID for the current user.");
-         // Check context validity before showing SnackBar
-         if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error: User device link missing in profile.')),
-            );
-         }
-         setState(() => _isProcessing = false);
-         return; // Stop processing if no device ID
-      }
-      // --- END OF MODIFICATION ---
-
-
-      if (_isEditing) {
-        // --- UPDATE LOGIC ---
-        final updatedItem = FoodItem(
-          id: widget.itemToEdit!.id,
-          name: name,
-          category: _selectedCategory,
-          quantity: quantity,
-          lastDetected: DateTime.now(),
-          icon: EmojiPicker.getEmojiForItem(name, _selectedCategory),
-          sourceDevice: deviceId, // <-- Uses the real deviceId variable
-        );
-        // Use context.read safely if context might become invalid during async gap
-        if (mounted) await context.read<FoodTrackerState>().updateItem(updatedItem);
-      } else {
-        // --- ADD LOGIC ---
-        final newItem = FoodItem(
-          id: '', // PocketBase generates ID
-          name: name,
-          category: _selectedCategory,
-          quantity: quantity,
-          lastDetected: DateTime.now(),
-          icon: EmojiPicker.getEmojiForItem(name, _selectedCategory),
-          sourceDevice: deviceId, // <-- Uses the real deviceId variable
-        );
-         if (mounted) await context.read<FoodTrackerState>().addItem(newItem);
-      }
-
-
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        Navigator.pop(context);
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        print("Error submitting form: $e");
+        // TODO: Show a SnackBar error to the user
+      } finally {
+        if (mounted) {
+          setState(() => _isAdding = false);
+        }
       }
     }
   }
@@ -120,6 +102,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      // Dynamic title
       title: Text(_isEditing ? 'Edit Food Item' : 'Add Food Item'),
       content: Form(
         key: _formKey,
@@ -146,8 +129,12 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
                     if (value == null || value.isEmpty) {
                       return 'Enter a quantity';
                     }
-                    if (int.tryParse(value) == null) {
+                    final number = int.tryParse(value);
+                    if (number == null) {
                       return 'Enter a valid number';
+                    }
+                    if (number < 0) { // Quantity can't be negative
+                      return 'Quantity must be 0 or more';
                     }
                     return null;
                   },
@@ -179,13 +166,14 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _isProcessing ? null : _submitForm,
-          child: _isProcessing
+          onPressed: _isAdding ? null : _submitForm,
+          child: _isAdding
               ? const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
+              // Dynamic button text
               : Text(_isEditing ? 'Save' : 'Add'),
         ),
       ],

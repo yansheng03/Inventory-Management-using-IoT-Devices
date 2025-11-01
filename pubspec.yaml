@@ -10,10 +10,13 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.5
-  pocketbase: ^0.23.0+1
   shared_preferences: ^2.2.3
   http: ^1.2.1
   multicast_dns: ^0.3.2+4
+  firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
+  cloud_firestore: ^6.0.3
+  firebase_storage: ^13.0.3
 
 dev_dependencies:
   flutter_test:
