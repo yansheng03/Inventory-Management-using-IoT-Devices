@@ -4,11 +4,10 @@ import 'package:capstone_app/models/food_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_tracker_state.dart';
-// Import our newly renamed dialog
 import '../widgets/food_item_dialog.dart'; 
 import '../widgets/category_chip.dart';
-import 'device_page.dart';
-import 'profile_page.dart';
+import 'package:capstone_app/screens/profile_page.dart';
+import 'package:capstone_app/screens/device_page.dart';
 
 class FoodHomePage extends StatefulWidget {
   const FoodHomePage({super.key});
