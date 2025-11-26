@@ -410,7 +410,7 @@ class _DevicePageState extends State<DevicePage> {
                   label: const Text('Forget this Device'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
-                    side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                    side: BorderSide(color: Colors.red.withValues()),
                   ),
                   onPressed: provider.isCommunicating 
                     ? null 

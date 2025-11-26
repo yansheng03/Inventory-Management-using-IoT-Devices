@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+gunicorn
+google-cloud-storage
+google-cloud-aiplatform
