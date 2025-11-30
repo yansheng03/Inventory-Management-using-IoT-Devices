@@ -10,7 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class DeviceProvider with ChangeNotifier {
   String _deviceIp = '';
-  String _ldrStatus = 'Unknown';
+  String _connectionStatus = 'Unknown';
   bool _isScanning = false;
   bool _isCommunicating = false;
   String? _error;
@@ -18,7 +18,7 @@ class DeviceProvider with ChangeNotifier {
   Uint8List? _latestSnapshot;
 
   String get deviceIp => _deviceIp;
-  String get ldrStatus => _ldrStatus;
+  String get connectionStatus => _connectionStatus;
   bool get isScanning => _isScanning;
   bool get isDeviceFound => _deviceIp.isNotEmpty;
   bool get isCommunicating => _isCommunicating;
@@ -32,7 +32,7 @@ class DeviceProvider with ChangeNotifier {
 
   void _resetConnectionState() {
     _deviceIp = '';
-    _ldrStatus = 'Unknown';
+    _connectionStatus = 'Unknown';
     _isScanning = false;
     _isCommunicating = false;
     _error = null;
@@ -74,17 +74,16 @@ class DeviceProvider with ChangeNotifier {
     return success;
   }
 
-  // --- *** THIS FUNCTION IS NOW FIXED *** ---
   Future<void> scanForDevice() async {
     _isScanning = true;
     _deviceIp = '';
-    _ldrStatus = 'Unknown';
+    _connectionStatus = 'Unknown';
     _error = null;
     _latestSnapshot = null;
     notifyListeners();
 
     try {
-      // --- STAGE 1: Try mDNS (The fast way) ---
+      // --- STAGE 1: mDNS ---
       final MDnsClient client = MDnsClient();
       await client.start();
 
@@ -105,22 +104,22 @@ class DeviceProvider with ChangeNotifier {
             _isScanning = false;
             client.stop();
             notifyListeners();
-            await getLdrStatus();
+            await checkDeviceStatus();
             return; 
           }
         }
       }
-
-      // mDNS scan timed out
       client.stop();
+      
+      // --- STAGE 2: Cloud Lookup ---
+      // If mDNS failed, try finding IP from Firestore
       throw Exception('mDNS scan failed. Trying cloud lookup...');
       
     } catch (e) {
-      // --- STAGE 2: mDNS FAILED. Try Cloud IP Lookup ---
       String? userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) {
          _isScanning = false;
-        _error = 'Not logged in. Cannot find device.';
+        _error = 'Not logged in.';
         notifyListeners();
         return;
       }
@@ -128,70 +127,57 @@ class DeviceProvider with ChangeNotifier {
       String? deviceId;
       try {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-        
-        // --- *** THIS IS THE FIX *** ---
-        // Check if the document exists AND has data
         if (userDoc.exists && userDoc.data() != null) {
           final data = userDoc.data() as Map<String, dynamic>;
-          // Check if the 'deviceId' field exists
           if (data.containsKey('deviceId')) {
             deviceId = data['deviceId'];
           }
         }
-        // --- *** END OF FIX *** ---
-
       } catch (e) {
         _isScanning = false;
-        _error = 'Could not read your user profile from Firestore.';
+        _error = 'Could not read user profile.';
         notifyListeners();
         return;
       }
 
       if (deviceId == null || deviceId.isEmpty) {
         _isScanning = false;
-        _error = 'No deviceId linked to your account. Please run setup.';
+        _error = 'No device linked. Please run setup.';
         notifyListeners();
         return;
       }
       
-      // --- NOW WE CAN QUERY FOR THE IP ---
       try {
         DocumentSnapshot deviceDoc = await FirebaseFirestore.instance
             .collection('device_locations')
             .doc(deviceId)
             .get();
 
-        if (!deviceDoc.exists) {
-          throw Exception('Device has never reported its IP address.');
-        }
+        if (!deviceDoc.exists) throw Exception('No IP record.');
 
         final deviceData = deviceDoc.data() as Map<String, dynamic>;
-        // Check if the 'ip' field exists
         if (!deviceData.containsKey('ip') || (deviceData['ip'] as String).isEmpty) {
-           throw Exception('Device IP in database is empty.');
+           throw Exception('Device IP empty.');
         }
         
-        String ip = deviceData['ip'];
-
-        _deviceIp = ip;
+        _deviceIp = deviceData['ip'];
         _deviceName = '$deviceId (Cloud)';
         _isScanning = false;
         notifyListeners();
         
-        await getLdrStatus(); 
+        await checkDeviceStatus(); 
 
       } catch (e) {
         _isScanning = false;
-        // This is the error message you are seeing.
-        _error = 'AP Isolation active and cloud lookup failed. Check device power.';
+        _error = 'Device not found. Is it powered on?';
         notifyListeners();
       }
     }
   }
 
-  Future<void> getLdrStatus() async {
+  Future<void> checkDeviceStatus() async {
     if (!isDeviceFound) {
-      _error = 'Device not found. Please scan first.';
+      _error = 'Device not connected.';
       notifyListeners();
       return;
     }
@@ -206,13 +192,14 @@ class DeviceProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _ldrStatus = data['status']?.toString().toUpperCase() ?? 'Error'; 
+        // ESP32 sends {"status":"online"}
+        _connectionStatus = data['status']?.toString().toUpperCase() ?? 'Error'; 
       } else {
-        _error = 'Failed to get status (Code: ${response.statusCode})';
+        _error = 'Status check failed (Code: ${response.statusCode})';
       }
     } catch (e) {
-      _error = 'Communication failed (getLdrStatus). Is the device online at $_deviceIp?';
-      _resetConnectionState(); 
+      _error = 'Connection timed out. Check if device is powered.';
+      // We don't reset IP here immediately to allow retrying
     }
 
     _isCommunicating = false;
@@ -221,31 +208,30 @@ class DeviceProvider with ChangeNotifier {
 
   Future<bool> triggerSnapshot() async {
     if (!isDeviceFound) {
-      _error = 'Device not found. Please scan first.';
+      _error = 'Device not connected. Please scan first.';
       notifyListeners();
       return false;
     }
 
     _isCommunicating = true;
     _error = null;
-    _latestSnapshot = null; 
     notifyListeners();
 
     bool success = false;
 
     try {
-      final response = await http.post(Uri.parse('http://$_deviceIp/snapshot'))
-          .timeout(const Duration(seconds: 20)); 
+      final response = await http.get(Uri.parse('http://$_deviceIp/snapshot'))
+          .timeout(const Duration(seconds: 10)); 
 
       if (response.statusCode == 200 &&
           response.headers['content-type']?.contains('image/jpeg') == true) { 
         _latestSnapshot = response.bodyBytes; 
         success = true;
       } else {
-        _error = 'Failed to get snapshot image (Code: ${response.statusCode}, Type: ${response.headers['content-type']})';
+        _error = 'Snapshot failed (Code: ${response.statusCode})';
       }
     } catch (e) {
-      _error = 'Communication failed (triggerSnapshot). Is the device online at $_deviceIp?';
+      _error = 'Connection timed out. Ensure you are close to the device.';
     }
 
     _isCommunicating = false;

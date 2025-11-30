@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:capstone_app/providers/food_tracker_state.dart';
@@ -8,10 +6,7 @@ import 'package:capstone_app/screens/food_home_page.dart';
 import 'package:capstone_app/screens/login_screen.dart'; 
 import 'package:capstone_app/services/firebase_service.dart'; 
 import 'package:capstone_app/theme/app_theme.dart';
-
-// --- ADD THIS IMPORT ---
 import 'package:capstone_app/providers/device_provider.dart';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart'; 
@@ -19,25 +14,24 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
+  // --- THE FIX IS HERE ---
+  // Only initialize Firebase if it hasn't been initialized yet
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      name: "FIT App",
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+  // -----------------------
+
   final firebaseService = FirebaseService();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        
-        // --- ADD THE DEVICE PROVIDER ---
-        ChangeNotifierProvider(
-          create: (_) => DeviceProvider(), // Auto-scan on startup
-        ),
-        
-        Provider<FirebaseService>(
-          create: (_) => firebaseService,
-        ),
+        ChangeNotifierProvider(create: (_) => DeviceProvider()),
+        Provider<FirebaseService>(create: (_) => firebaseService),
         ChangeNotifierProvider(
           create: (context) => FoodTrackerState(
             context.read<FirebaseService>(),
@@ -73,11 +67,9 @@ class MyApp extends StatelessWidget {
               }
               
               if (snapshot.hasData) {
-                // USER IS LOGGED IN
-                return const FoodHomePage(); // This is your main screen
+                return const FoodHomePage(); 
               }
               
-              // USER IS LOGGED OUT
               return const LoginScreen();
             },
           ),

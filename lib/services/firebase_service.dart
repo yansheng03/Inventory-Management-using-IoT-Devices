@@ -10,42 +10,26 @@ class FirebaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // --- Auth ---
-
-  /// Get the current logged-in user.
   User? get currentUser => _auth.currentUser;
-
-  /// Get a stream of authentication state changes (login/logout).
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  /// Get the current user's unique ID.
   String? get currentUserId => _auth.currentUser?.uid;
 
-  /// Login with email and password.
   Future<void> login(String email, String password) async {
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
     } on FirebaseAuthException catch (e) {
-      // Handle errors (e.g., user-not-found, wrong-password)
       print("Login error: ${e.message}");
       rethrow;
     }
   }
 
-  /// Sign up a new user.
   Future<UserCredential> signUp(String email, String password, String name) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Add user's name
       await userCredential.user?.updateDisplayName(name);
-
-      // We can also create a 'users' document to store extra info
       if (userCredential.user != null) {
         await _db.collection('users').doc(userCredential.user!.uid).set({
           'name': name,
@@ -55,36 +39,32 @@ class FirebaseService {
       }
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      // Handle errors (e.g., email-already-in-use)
       print("Sign up error: ${e.message}");
       rethrow;
     }
   }
 
-  /// Log out the current user.
   Future<void> logout() async {
     await _auth.signOut();
   }
 
   // --- Device Management ---
-  
-  /// Gets the first device ID linked to the current user.
+
+  // Check if this user already has a device linked.
+  // Returns the Device ID if found, or null if not.
   Future<String?> getUserDevice() async {
     final userId = currentUserId;
     if (userId == null) return null;
-
     try {
-      // Query the 'devices' collection
       final query = await _db
           .collection('devices')
           .where('owner_id', isEqualTo: userId)
           .limit(1)
           .get();
-          
+      
       if (query.docs.isNotEmpty) {
-        return query.docs.first.id; // This is the device's Record ID
+        return query.docs.first.id;
       }
-      print("No device found for this user.");
       return null;
     } catch (e) {
       print("Error getting user device: $e");
@@ -92,14 +72,30 @@ class FirebaseService {
     }
   }
 
+  // Registers a device ONLY after setup is confirmed.
+  // Uses 'merge: true' so it updates the name if the ID exists, or creates it if not.
+  Future<void> registerConfirmedDevice({required String deviceId, required String deviceName}) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception("User not logged in");
+
+    try {
+      await _db.collection('devices').doc(deviceId).set({
+        'owner_id': userId,
+        'name': deviceName,
+        'last_setup_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      
+      print("Device registered/updated successfully: $deviceId");
+    } catch (e) {
+      print("Error registering confirmed device: $e");
+      rethrow;
+    }
+  }
+
   // --- Inventory Management ---
 
-  /// Get a REAL-TIME stream of inventory items for a specific device.
   Stream<List<FoodItem>> getInventoryStream(String deviceId) {
-    if (deviceId.isEmpty) {
-      return Stream.value([]); // Return empty list if no device
-    }
-
+    if (deviceId.isEmpty) return Stream.value([]);
     return _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
@@ -110,32 +106,18 @@ class FirebaseService {
             .toList());
   }
 
-  // --- NEW: updateFoodItem METHOD ---
-  /// Updates an existing food item in Firestore.
   Future<void> updateFoodItem(FoodItem item) async {
-    if (item.id.isEmpty) {
-      print("Error: Cannot update item without an ID.");
-      return;
-    }
-    await _db
-        .collection('inventory')
-        .doc(item.id)
-        .update(item.toFirestoreUpdate()); // Use the new update map
+    if (item.id.isEmpty) return;
+    await _db.collection('inventory').doc(item.id).update(item.toFirestoreUpdate());
   }
 
-  // --- HEAVILY MODIFIED: addFoodItem (now an "Upsert") ---
-  /// Adds a new food item or updates the quantity of an existing one.
   Future<void> addFoodItem(FoodItem item, String deviceId) async {
     final userId = currentUserId;
-    if (userId == null || deviceId.isEmpty) {
-      print("Cannot add item: User not logged in or no device ID.");
-      return;
-    }
+    if (userId == null || deviceId.isEmpty) return;
 
-    // Normalized name for searching
     final normalizedName = item.name.toLowerCase();
-
-    // 1. Query for an existing item
+    
+    // Check if this specific item already exists for this device
     final query = _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
@@ -146,14 +128,19 @@ class FirebaseService {
     final snapshot = await query.get();
 
     if (snapshot.docs.isEmpty) {
-      // --- 2a. No item found: Create a new one ---
-      print("No existing item found. Creating new one.");
-      await _db.collection('inventory').add(
-        item.toFirestore(userId, deviceId)
-      );
+      // CREATE NEW ITEM
+      // Including all requested fields: category, lastDetected, name, owner_id, quantity, source_device_id
+      await _db.collection('inventory').add({
+        'name': item.name,
+        'name_normalized': normalizedName,
+        'quantity': item.quantity,
+        'category': item.category,
+        'lastDetected': Timestamp.fromDate(item.lastDetected),
+        'source_device_id': deviceId,
+        'owner_id': userId,
+      });
     } else {
-      // --- 2b. Item found: Update the existing one ---
-      print("Existing item found. Updating quantity.");
+      // UPDATE EXISTING ITEM
       final existingDoc = snapshot.docs.first;
       final existingQuantity = (existingDoc.data()['quantity'] ?? 0) as int;
       final newQuantity = existingQuantity + item.quantity;
@@ -165,32 +152,7 @@ class FirebaseService {
     }
   }
 
-  /// Delete a food item from the inventory.
   Future<void> deleteFoodItem(String itemId) async {
     await _db.collection('inventory').doc(itemId).delete();
-  }
-
-  /// Creates a new device document in Firestore for the current user.
-  /// Returns the unique ID of the newly created device document.
-  Future<String?> registerNewDevice({String deviceName = "My Fridge"}) async {
-    final userId = currentUserId;
-    if (userId == null) {
-      print("Error: Cannot register device, user not logged in.");
-      return null; 
-    }
-
-    try {
-      final docRef = await _db.collection('devices').add({
-        'owner_id': userId,
-        'name': deviceName,
-        'registered_at': FieldValue.serverTimestamp(),
-        // You could add other initial fields here if needed
-      });
-      print("Device registered successfully with ID: ${docRef.id}");
-      return docRef.id; // Return the auto-generated ID
-    } catch (e) {
-      print("Error registering device in Firestore: $e");
-      return null;
-    }
   }
 }
