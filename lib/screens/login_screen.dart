@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:capstone_app/services/firebase_service.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import for FirebaseAuthException
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,9 +15,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _nameController = TextEditingController(); // For sign up
+  final _nameController = TextEditingController(); 
   bool _isLoading = false;
-  bool _isLogin = true; // Toggles between login and sign up
+  bool _isLogin = true; 
 
   @override
   void dispose() {
@@ -54,7 +54,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _nameController.text.trim(),
         );
       }
-      // No navigation needed, StreamBuilder in main.dart handles it
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? "An error occurred.");
     } catch (e) {
@@ -85,6 +84,20 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // --- BRANDING HEADER ---
+              Icon(Icons.kitchen, size: 80, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 16),
+              const Text(
+                "FIT",
+                style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, letterSpacing: 2.0),
+              ),
+              const Text(
+                "Fridge Inventory Tracker",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 48),
+              // -----------------------
+
               Text(
                 _isLogin ? 'Welcome Back!' : 'Create Account',
                 style: Theme.of(context).textTheme.headlineMedium,

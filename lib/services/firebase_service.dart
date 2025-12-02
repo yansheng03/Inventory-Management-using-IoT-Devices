@@ -48,10 +48,31 @@ class FirebaseService {
     await _auth.signOut();
   }
 
+  // --- RESTORED: Profile Management ---
+
+  Future<void> updateDisplayName(String newName) async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      // 1. Update Auth Profile
+      await user.updateDisplayName(newName);
+      
+      // 2. Update Firestore Document
+      await _db.collection('users').doc(user.uid).update({'name': newName});
+      
+      // 3. Reload user to ensure local cache is fresh
+      await user.reload(); 
+    }
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      await user.updatePassword(newPassword);
+    }
+  }
+
   // --- Device Management ---
 
-  // Check if this user already has a device linked.
-  // Returns the Device ID if found, or null if not.
   Future<String?> getUserDevice() async {
     final userId = currentUserId;
     if (userId == null) return null;
@@ -72,8 +93,6 @@ class FirebaseService {
     }
   }
 
-  // Registers a device ONLY after setup is confirmed.
-  // Uses 'merge: true' so it updates the name if the ID exists, or creates it if not.
   Future<void> registerConfirmedDevice({required String deviceId, required String deviceName}) async {
     final userId = currentUserId;
     if (userId == null) throw Exception("User not logged in");
@@ -95,10 +114,13 @@ class FirebaseService {
   // --- Inventory Management ---
 
   Stream<List<FoodItem>> getInventoryStream(String deviceId) {
-    if (deviceId.isEmpty) return Stream.value([]);
+    final userId = currentUserId;
+    if (deviceId.isEmpty || userId == null) return Stream.value([]);
+    
     return _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
+        .where('owner_id', isEqualTo: userId) // Security Filter
         .orderBy('lastDetected', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -117,10 +139,10 @@ class FirebaseService {
 
     final normalizedName = item.name.toLowerCase();
     
-    // Check if this specific item already exists for this device
     final query = _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
+        .where('owner_id', isEqualTo: userId) // Security Filter
         .where('name_normalized', isEqualTo: normalizedName)
         .where('category', isEqualTo: item.category)
         .limit(1);
@@ -129,7 +151,6 @@ class FirebaseService {
 
     if (snapshot.docs.isEmpty) {
       // CREATE NEW ITEM
-      // Including all requested fields: category, lastDetected, name, owner_id, quantity, source_device_id
       await _db.collection('inventory').add({
         'name': item.name,
         'name_normalized': normalizedName,
@@ -155,4 +176,27 @@ class FirebaseService {
   Future<void> deleteFoodItem(String itemId) async {
     await _db.collection('inventory').doc(itemId).delete();
   }
+
+  // Listen for pending alerts for the current user
+  Stream<List<Map<String, dynamic>>> getBatchAlertsStream() {
+    final userId = currentUserId;
+    if (userId == null) return Stream.value([]);
+
+    return _db
+        .collection('batch_alerts')
+        .where('owner_id', isEqualTo: userId)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id; // Include doc ID
+              return data;
+            }).toList());
+  }
+
+  // Delete the alert (mark as handled)
+  Future<void> dismissBatchAlert(String alertId) async {
+    await _db.collection('batch_alerts').doc(alertId).delete();
+  }
+  
 }

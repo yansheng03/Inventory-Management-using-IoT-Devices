@@ -1,5 +1,6 @@
 import os
 import json
+import mimetypes
 from fastapi import FastAPI
 from pydantic import BaseModel
 from google.cloud import storage
@@ -9,7 +10,6 @@ from vertexai.generative_models import GenerativeModel, Part
 app = FastAPI()
 
 # Initialize Vertex AI
-# REPLACE with your actual Project ID if different
 PROJECT_ID = "iot-inventory-management-7c555" 
 LOCATION = "us-central1"
 vertexai.init(project=PROJECT_ID, location=LOCATION)
@@ -21,25 +21,42 @@ class VideoRequest(BaseModel):
 
 @app.post("/analyze_movement")
 async def analyze_movement(request: VideoRequest):
-    print(f"Processing video with Gemini: {request.gcsPath}", flush=True)
+    print(f"Processing media with Gemini: {request.gcsPath}", flush=True)
     
-    local_filename = "/tmp/video.mp4"
+    filename = request.gcsPath.split("/")[-1]
+    local_filename = f"/tmp/{filename}"
     
     try:
-        # 1. Download Video
+        # 1. Determine MIME type
+        mime_type, _ = mimetypes.guess_type(local_filename)
+        if not mime_type:
+            mime_type = "video/mp4" # Fallback
+
+        # 2. Download File
         storage_client = storage.Client()
         path_clean = request.gcsPath.replace("gs://", "")
         bucket_name, blob_name = path_clean.split("/", 1)
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         blob.download_to_filename(local_filename)
+        
+        # Check if this is a directory scan (from previous context) or single file
+        # For simplicity assuming single file or triggered sequence here. 
+        # (If using the sequence logic from before, ensure that code is preserved/merged)
 
-        # 2. Prepare the Prompt
-        prompt = """
-        You are a smart fridge inventory manager. Watch this video carefully.
+        # 3. Prepare the Prompt
+        # explicit categories list
+        categories = [
+            "vegetables", "fruit", "meat", "seafood", "dairy", 
+            "bakery", "cooked", "drinks", "condiments", "others"
+        ]
+        
+        prompt = f"""
+        You are a smart fridge inventory manager. Analyze this media content carefully.
         
         Did an item enter the fridge (Added) or leave the fridge (Removed)?
-        Identify the specific item (e.g., 'Apple', 'Chobani Yogurt', 'Egg').
+        Identify the specific item and categorize it into one of these exact categories:
+        {categories}
         
         Rules:
         - If a hand puts an item IN, it is 'added'.
@@ -48,28 +65,32 @@ async def analyze_movement(request: VideoRequest):
         - Ignore the hand itself. Focus on the object.
         
         Return ONLY raw JSON. Do not use Markdown formatting.
-        Format: {"added": ["item_name"], "removed": ["item_name"]}
+        The output must strictly follow this structure:
+        {{
+            "added": [{{"name": "Apple", "category": "fruit"}}], 
+            "removed": [{{"name": "Milk", "category": "dairy"}}]
+        }}
         """
 
-        # 3. Read video data
+        # 4. Read file data
         with open(local_filename, "rb") as f:
-            video_data = f.read()
+            file_data = f.read()
 
-        video_part = Part.from_data(
-            mime_type="video/mp4",
-            data=video_data
+        media_part = Part.from_data(
+            mime_type=mime_type,
+            data=file_data
         )
 
-        # 4. Ask the AI
+        # 5. Ask the AI
         print("Sending to Gemini...", flush=True)
         response = model.generate_content(
-            [video_part, prompt],
+            [media_part, prompt],
             generation_config={"response_mime_type": "application/json"}
         )
         
         print(f"Gemini Response: {response.text}", flush=True)
 
-        # 5. Parse Result
+        # 6. Parse Result
         result_json = json.loads(response.text)
         return result_json
 

@@ -11,6 +11,19 @@ class FoodItem {
   final DateTime lastDetected;
   final String icon;
 
+  static const List<String> validCategories = [
+    'vegetables', 
+    'fruit', 
+    'meat', 
+    'seafood',
+    'dairy', 
+    'bakery',
+    'leftovers',
+    'drinks', 
+    'condiments', 
+    'others'
+  ];
+
   FoodItem({
     this.id = '',
     required this.name,
@@ -32,11 +45,9 @@ class FoodItem {
     );
   }
 
-  // --- UPDATED toFirestore METHOD ---
   Map<String, dynamic> toFirestore(String ownerId, String deviceId) {
     return {
       'name': name,
-      // Add a normalized field for case-insensitive searching
       'name_normalized': name.toLowerCase(), 
       'category': category,
       'quantity': quantity,
@@ -46,7 +57,6 @@ class FoodItem {
     };
   }
 
-  // --- NEW: A map for just updating (without owner/device ID) ---
   Map<String, dynamic> toFirestoreUpdate() {
     return {
       'name': name,

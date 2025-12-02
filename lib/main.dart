@@ -52,7 +52,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeProvider, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Your Food',
+          title: 'Fridge Inventory Tracker',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.currentTheme,

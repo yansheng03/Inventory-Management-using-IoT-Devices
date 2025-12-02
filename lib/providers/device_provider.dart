@@ -50,9 +50,9 @@ class DeviceProvider with ChangeNotifier {
 
     bool success = false;
     try {
-      final response = await http.post(
-        Uri.parse('http://$_deviceIp/forget-wifi'),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .post(Uri.parse('http://$_deviceIp/forget-wifi'))
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         _resetConnectionState();
@@ -62,13 +62,13 @@ class DeviceProvider with ChangeNotifier {
       }
     } catch (e) {
       if (e is TimeoutException) {
-         _resetConnectionState();
-         success = true; 
+        _resetConnectionState();
+        success = true;
       } else {
         _error = 'Communication failed (forgetWifi).';
       }
     }
-    
+
     _isCommunicating = false;
     notifyListeners();
     return success;
@@ -87,46 +87,52 @@ class DeviceProvider with ChangeNotifier {
       final MDnsClient client = MDnsClient();
       await client.start();
 
-      await for (final PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
-          ResourceRecordQuery.serverPointer(_serviceName))) {
+      await for (final PtrResourceRecord ptr
+          in client.lookup<PtrResourceRecord>(
+            ResourceRecordQuery.serverPointer(_serviceName),
+          )) {
         if (!ptr.domainName.startsWith('inventory-fridge')) {
           continue;
         }
 
         await for (final SrvResourceRecord srv
             in client.lookup<SrvResourceRecord>(
-                ResourceRecordQuery.service(ptr.domainName))) {
+              ResourceRecordQuery.service(ptr.domainName),
+            )) {
           await for (final IPAddressResourceRecord a
               in client.lookup<IPAddressResourceRecord>(
-                  ResourceRecordQuery.addressIPv4(srv.target))) {
+                ResourceRecordQuery.addressIPv4(srv.target),
+              )) {
             _deviceIp = a.address.address;
             _deviceName = srv.target.split('.').first;
             _isScanning = false;
             client.stop();
             notifyListeners();
             await checkDeviceStatus();
-            return; 
+            return;
           }
         }
       }
       client.stop();
-      
+
       // --- STAGE 2: Cloud Lookup ---
       // If mDNS failed, try finding IP from Firestore
       throw Exception('mDNS scan failed. Trying cloud lookup...');
-      
     } catch (e) {
       String? userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) {
-         _isScanning = false;
+        _isScanning = false;
         _error = 'Not logged in.';
         notifyListeners();
         return;
       }
-      
+
       String? deviceId;
       try {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
         if (userDoc.exists && userDoc.data() != null) {
           final data = userDoc.data() as Map<String, dynamic>;
           if (data.containsKey('deviceId')) {
@@ -146,7 +152,7 @@ class DeviceProvider with ChangeNotifier {
         notifyListeners();
         return;
       }
-      
+
       try {
         DocumentSnapshot deviceDoc = await FirebaseFirestore.instance
             .collection('device_locations')
@@ -156,22 +162,38 @@ class DeviceProvider with ChangeNotifier {
         if (!deviceDoc.exists) throw Exception('No IP record.');
 
         final deviceData = deviceDoc.data() as Map<String, dynamic>;
-        if (!deviceData.containsKey('ip') || (deviceData['ip'] as String).isEmpty) {
-           throw Exception('Device IP empty.');
+        if (!deviceData.containsKey('ip') ||
+            (deviceData['ip'] as String).isEmpty) {
+          throw Exception('Device IP empty.');
         }
-        
+
         _deviceIp = deviceData['ip'];
         _deviceName = '$deviceId (Cloud)';
         _isScanning = false;
         notifyListeners();
-        
-        await checkDeviceStatus(); 
 
+        await checkDeviceStatus();
       } catch (e) {
         _isScanning = false;
         _error = 'Device not found. Is it powered on?';
         notifyListeners();
       }
+    }
+  }
+
+  Future<void> syncTimeWithDevice() async {
+    if (!isDeviceFound) return;
+    try {
+      int timestamp = DateTime.now().millisecondsSinceEpoch;
+      final response = await http
+          .post(Uri.parse('http://$_deviceIp/set-time?timestamp=$timestamp'))
+          .timeout(const Duration(seconds: 2));
+
+      if (response.statusCode == 200) {
+        print("Device Time Synced Successfully");
+      }
+    } catch (e) {
+      print("Time Sync Failed: $e");
     }
   }
 
@@ -187,13 +209,15 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await http.get(Uri.parse('http://$_deviceIp/status'))
+      final response = await http
+          .get(Uri.parse('http://$_deviceIp/status'))
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         // ESP32 sends {"status":"online"}
-        _connectionStatus = data['status']?.toString().toUpperCase() ?? 'Error'; 
+        _connectionStatus = data['status']?.toString().toUpperCase() ?? 'Error';
+        syncTimeWithDevice();
       } else {
         _error = 'Status check failed (Code: ${response.statusCode})';
       }
@@ -220,12 +244,13 @@ class DeviceProvider with ChangeNotifier {
     bool success = false;
 
     try {
-      final response = await http.get(Uri.parse('http://$_deviceIp/snapshot'))
-          .timeout(const Duration(seconds: 10)); 
+      final response = await http
+          .get(Uri.parse('http://$_deviceIp/snapshot'))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 &&
-          response.headers['content-type']?.contains('image/jpeg') == true) { 
-        _latestSnapshot = response.bodyBytes; 
+          response.headers['content-type']?.contains('image/jpeg') == true) {
+        _latestSnapshot = response.bodyBytes;
         success = true;
       } else {
         _error = 'Snapshot failed (Code: ${response.statusCode})';

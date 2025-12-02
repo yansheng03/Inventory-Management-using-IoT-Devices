@@ -2,7 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:capstone_app/models/food_item.dart'; // <-- FIX: ADDED THIS IMPORT
+import 'package:capstone_app/models/food_item.dart';
 import 'package:capstone_app/services/firebase_service.dart';
 
 class FoodTrackerState extends ChangeNotifier {
@@ -73,14 +73,15 @@ class FoodTrackerState extends ChangeNotifier {
   }
 
   Future<void> addItem(FoodItem item) async {
+    // --- IMPROVED: Explicitly check for device connection ---
     if (_deviceId.isEmpty) {
-      print("Cannot add item: No device ID.");
-      return;
+      throw Exception("No device linked. Please go to the Device tab to connect your fridge monitor first.");
     }
     try {
       await _service.addFoodItem(item, _deviceId);
     } catch (e) {
       print("Failed to add item: $e");
+      rethrow; // Pass error to UI
     }
   }
 
@@ -89,15 +90,16 @@ class FoodTrackerState extends ChangeNotifier {
       await _service.updateFoodItem(item);
     } catch (e) {
       print("Failed to update item: $e");
+      rethrow;
     }
   }
 
   Future<void> deleteItem(String id) async {
     try {
-      // --- FIX: Renamed method to match the service ---
       await _service.deleteFoodItem(id); 
     } catch (e) {
       print("Failed to delete item: $e");
+      rethrow;
     }
   }
 }

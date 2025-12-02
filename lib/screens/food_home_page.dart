@@ -4,10 +4,13 @@ import 'package:capstone_app/models/food_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_tracker_state.dart';
-import '../widgets/food_item_dialog.dart'; 
+import '../widgets/food_item_dialog.dart';
 import '../widgets/category_chip.dart';
 import 'package:capstone_app/screens/profile_page.dart';
 import 'package:capstone_app/screens/device_page.dart';
+import 'package:capstone_app/services/firebase_service.dart';
+import 'package:capstone_app/widgets/batch_review_dialog.dart';
+import 'dart:async';
 
 class FoodHomePage extends StatefulWidget {
   const FoodHomePage({super.key});
@@ -18,13 +21,17 @@ class FoodHomePage extends StatefulWidget {
 
 class _FoodHomePageState extends State<FoodHomePage> {
   int _selectedIndex = 1;
+  StreamSubscription? _alertSubscription;
   final ScrollController _scrollController = ScrollController();
-  
+
   late Map<String, GlobalKey> _categoryKeys;
 
-  final List<String> _categories = [
-    'all', 'vegetables', 'meat', 'fruit', 'dairy', 
-    'drinks', 'packaged', 'condiments', 'others'
+  final List<String> _categories = ['all', ...FoodItem.validCategories];
+
+  final List<String> _pageTitles = [
+    'Device Connection',
+    'Your Items',
+    'My Profile',
   ];
 
   @override
@@ -32,19 +39,44 @@ class _FoodHomePageState extends State<FoodHomePage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<FoodTrackerState>().initialize();
+      _setupAlertListener();
     });
-    _categoryKeys = { for (var category in _categories) category: GlobalKey() };
+    _categoryKeys = {for (var category in _categories) category: GlobalKey()};
+  }
+
+  void _setupAlertListener() {
+    final firebaseService = context.read<FirebaseService>();
+    _alertSubscription = firebaseService.getBatchAlertsStream().listen((
+      alerts,
+    ) {
+      if (alerts.isNotEmpty && mounted) {
+        // Just take the first one to show
+        final alert = alerts.first;
+
+        // Prevent stacking dialogs if one is already open?
+        // Simple way: just show it.
+        showDialog(
+          context: context,
+          barrierDismissible: false, // Force them to press OK
+          builder: (ctx) => BatchReviewDialog(
+            alertId: alert['id'],
+            changes: alert['changes'] ?? [],
+          ),
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _alertSubscription?.cancel(); // <--- Clean up
     _scrollController.dispose();
     super.dispose();
   }
-  
+
   void _onCategoryTap(String category) {
     context.read<FoodTrackerState>().setCategory(category);
-    
+
     final key = _categoryKeys[category];
     if (key != null && key.currentContext != null) {
       Scrollable.ensureVisible(
@@ -58,7 +90,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
 
   void _onNavTap(int index) => setState(() => _selectedIndex = index);
 
-  // --- NEW: Helper to show the dialog ---
   void _showFoodItemDialog({FoodItem? item}) {
     showDialog(
       context: context,
@@ -78,36 +109,37 @@ class _FoodHomePageState extends State<FoodHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Your Items',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 26)),
+        title: Text(
+          _pageTitles[_selectedIndex],
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 26),
+        ),
         elevation: 0,
         centerTitle: true,
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: pages),
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
-              // Use the new helper to show the dialog for ADDING
-              onPressed: () => _showFoodItemDialog(), 
+              onPressed: () => _showFoodItemDialog(),
               child: const Icon(Icons.add),
             )
           : null,
       bottomNavigationBar: NavigationBar(
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.devices_other_outlined),
-              selectedIcon: Icon(Icons.devices_other),
-              label: 'Device'),
+            icon: Icon(Icons.devices_other_outlined),
+            selectedIcon: Icon(Icons.devices_other),
+            label: 'Device',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home'),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile'),
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onNavTap,
@@ -118,7 +150,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
   Widget _buildHomePageContent(FoodTrackerState appState) {
     return Column(
       children: [
-        // ... (Search Bar and Category Chips are unchanged) ...
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: TextField(
@@ -161,56 +192,82 @@ class _FoodHomePageState extends State<FoodHomePage> {
           child: appState.isLoading
               ? const Center(child: CircularProgressIndicator())
               : appState.filteredItems.isEmpty
-                  ? const Center(child: Text("No items found."))
-                  : RefreshIndicator(
-                      onRefresh: context.read<FoodTrackerState>().initialize,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: appState.filteredItems.length,
-                        separatorBuilder: (_, _) => const Divider(),
-                        itemBuilder: (context, index) {
-                          final item = appState.filteredItems[index];
-                          final dateString =
-                              item.lastDetected.toLocal().toString().split(' ')[0];
-                          
-                          return ListTile(
-                            leading: Text(item.icon,
-                                style: const TextStyle(fontSize: 28)),
-                            title: Text(item.name,
-                                style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500)),
-                            subtitle: Text("Last seen: $dateString"),
-                            // --- NEW: onTap for EDITING ---
-                            onTap: () => _showFoodItemDialog(item: item),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  item.quantity.toString(),
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      color: Colors.red),
-                                  onPressed: () {
-                                    _showDeleteDialog(context, item.id, item.name);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.kitchen_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      const Text("No items found."),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Refresh"),
+                        onPressed: context.read<FoodTrackerState>().initialize,
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: context.read<FoodTrackerState>().initialize,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: appState.filteredItems.length,
+                    separatorBuilder: (_, _) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final item = appState.filteredItems[index];
+                      final dateString = item.lastDetected
+                          .toLocal()
+                          .toString()
+                          .split(' ')[0];
+
+                      return ListTile(
+                        leading: Text(
+                          item.icon,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                        title: Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: Text("Last seen: $dateString"),
+                        onTap: () => _showFoodItemDialog(item: item),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.quantity.toString(),
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              onPressed: () {
+                                _showDeleteDialog(context, item.id, item.name);
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );
   }
 
   void _showDeleteDialog(BuildContext context, String id, String name) {
-    // ... (This function is unchanged) ...
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
