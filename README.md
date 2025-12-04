@@ -1,4 +1,4 @@
-FIT: Fridge Inventory Tracker
+# FIT: Fridge Inventory Tracker
 
 FIT is an intelligent IoT-based inventory management system designed to automate kitchen tracking. By combining an ESP32-CAM, Google Vertex AI (Gemini), Firebase, and a Flutter mobile app, FIT automatically detects when items are added or removed from your fridge and categorizes them in real-time.
 
@@ -171,7 +171,7 @@ Flash: Connect GPIO0 to GND, press Reset, click Upload. Remove jumper after uplo
 
 Usage: On first boot, if Wi-Fi fails, it starts a BLE server named "InventoryFridge-Setup". Use the mobile app to connect and provision Wi-Fi.
 
-<img width="600" height="800" alt="image" src="https://github.com/user-attachments/assets/2db71c47-b92a-4ff1-881b-9579301e8438" />
+<img width="720" height="720" alt="image" src="https://github.com/user-attachments/assets/2db71c47-b92a-4ff1-881b-9579301e8438" />
 
 # Step 5: Mobile App Setup (Flutter)
 
