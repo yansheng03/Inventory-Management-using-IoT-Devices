@@ -177,6 +177,24 @@ class FirebaseService {
     await _db.collection('inventory').doc(itemId).delete();
   }
 
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        // 1. Delete User Profile Document
+        await _db.collection('users').doc(user.uid).delete();
+        
+        // 2. Delete the Authentication Account
+        await user.delete();
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          throw Exception("For security, please log out and log in again before deleting your account.");
+        }
+        rethrow;
+      }
+    }
+  }
+
   // Listen for pending alerts for the current user
   Stream<List<Map<String, dynamic>>> getBatchAlertsStream() {
     final userId = currentUserId;
@@ -198,5 +216,5 @@ class FirebaseService {
   Future<void> dismissBatchAlert(String alertId) async {
     await _db.collection('batch_alerts').doc(alertId).delete();
   }
-  
+
 }

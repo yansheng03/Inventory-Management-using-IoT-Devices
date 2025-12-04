@@ -1,5 +1,6 @@
 // lib/screens/profile_page.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:capstone_app/providers/theme_provider.dart';
@@ -25,7 +26,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _showEditProfileDialog(FirebaseService service, User user) async {
     final TextEditingController nameController = TextEditingController(text: user.displayName);
-    
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -43,24 +43,14 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               try {
                 await service.updateDisplayName(nameController.text.trim());
-                
-                // --- FIX 1: Check ctx.mounted before using ctx ---
-                if (ctx.mounted) {
-                  Navigator.of(ctx).pop();
-                }
-                // --- FIX 2: Check mounted (this class) before using context/setState ---
+                if (ctx.mounted) Navigator.of(ctx).pop();
                 if (mounted) {
                   _showSnackBar("Profile updated successfully");
                   setState(() {}); 
                 }
               } catch (e) {
-                // --- FIX 3: Check ctx.mounted here too ---
-                if (ctx.mounted) {
-                   Navigator.of(ctx).pop();
-                }
-                if (mounted) {
-                   _showSnackBar("Failed to update profile: $e", isError: true);
-                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) _showSnackBar("Failed to update profile", isError: true);
               }
             },
             child: const Text("Save"),
@@ -72,7 +62,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _showChangePasswordDialog(FirebaseService service) async {
     final TextEditingController passwordController = TextEditingController();
-    
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -91,27 +80,16 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               final newPass = passwordController.text.trim();
               if (newPass.length < 6) {
-                 _showSnackBar("Password must be at least 6 characters", isError: true);
+                 if (mounted) _showSnackBar("Password must be at least 6 characters", isError: true);
                  return;
               }
-
               try {
                 await service.updatePassword(newPass);
-                
-                // --- FIX 4: Check ctx.mounted ---
-                if (ctx.mounted) {
-                  Navigator.of(ctx).pop();
-                }
-                if (mounted) {
-                  _showSnackBar("Password updated! Please login again.");
-                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) _showSnackBar("Password updated! Please login again.");
               } catch (e) {
-                if (ctx.mounted) {
-                  Navigator.of(ctx).pop();
-                }
-                if (mounted) {
-                  _showSnackBar("Error: ${e.toString()}", isError: true);
-                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) _showSnackBar("Error updating password", isError: true);
               }
             },
             child: const Text("Update"),
@@ -121,11 +99,84 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _showCustomAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Text("FIT 1.0.0", style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "OUR MISSION",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 10),
+              _buildValueItem(
+                "Prevent Food Waste", 
+                "Every year, millions of tons of food go to waste. FIT helps you track expiry and freshness, ensuring you use what you buy before it's too late.",
+              ),
+              _buildValueItem(
+                "Save Money", 
+                "Stop throwing cash in the bin. By managing your inventory efficiently, you avoid overbuying and get the most value out of your grocery budget.",
+              ),
+              _buildValueItem(
+                "Smart Living", 
+                "Automate your kitchen with AI. Spend less time checking what's in the fridge and more time creating delicious meals with ingredients you already have.",
+              ),
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 12),
+              const Text(
+                "TERMS AND CONDITIONS",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "1. Acceptance of Terms\nBy accessing and using the FIT app, you accept and agree to be bound by the terms and provision of this agreement.\n\n"
+                "2. AI Accuracy Disclaimer\nFIT uses artificial intelligence to identify food items. While we strive for high accuracy, errors may occur. Users should verify inventory lists manually.\n\n"
+                "3. Data Usage\nImages uploaded for analysis are processed securely. We do not share your personal data with third parties without consent.\n\n"
+                "4. Food Safety\nFIT tracks inventory dates but is not responsible for food spoilage or safety. Always check your food quality before consumption.",
+                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              showLicensePage(context: context, applicationName: "FIT", applicationVersion: "1.0.0");
+            },
+            child: const Text("Licenses"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Uses the stateful delete dialog ---
+  void _showDeleteAccountDialog(FirebaseService service) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Forces user to wait or press cancel
+      builder: (ctx) => _DeleteAccountDialog(service: service),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     final user = firebaseService.currentUser;
 
@@ -194,13 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.info_outline),
             title: const Text('About'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-               showAboutDialog(
-                 context: context, 
-                 applicationName: "FIT",
-                 applicationVersion: "1.0.0",
-               );
-            },
+            onTap: () => _showCustomAboutDialog(),
           ),
 
           // -- Logout Button --
@@ -222,6 +267,24 @@ class _ProfilePageState extends State<ProfilePage> {
               },
             ),
           ),
+
+          // DELETE BUTTON
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 40.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.delete_forever, color: Colors.white),
+              label: const Text("Delete Account"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700, // Explicitly Red
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => _showDeleteAccountDialog(firebaseService),
+            ),
+          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -239,6 +302,105 @@ class _ProfilePageState extends State<ProfilePage> {
           letterSpacing: 1.2,
         ),
       ),
+    );
+  }
+
+  Widget _buildValueItem(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 4),
+          Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+// Delete Dialog with Timer ---
+class _DeleteAccountDialog extends StatefulWidget {
+  final FirebaseService service;
+  const _DeleteAccountDialog({required this.service});
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  int _secondsRemaining = 5;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start the countdown
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_secondsRemaining > 0) {
+            _secondsRemaining--;
+          } else {
+            _timer?.cancel();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Only enable if timer hits 0
+    final bool canDelete = _secondsRemaining == 0;
+
+    return AlertDialog(
+      title: const Text("Delete Account"),
+      content: const Text(
+        "Are you sure you want to delete your account? This action is permanent and cannot be undone. All your data will be lost immediately.",
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: canDelete
+              ? () async {
+                  // Perform Delete
+                  Navigator.of(context).pop(); 
+                  try {
+                    await widget.service.deleteAccount();
+                  } catch (e) {
+                    final msg = e.toString().replaceAll("Exception: ", "");
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                }
+              : null, // Disabled when timer > 0
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.red.withAlpha(100),
+            disabledForegroundColor: Colors.white70,
+          ),
+          child: Text(
+            canDelete 
+              ? "Delete Forever" 
+              : "Wait ${_secondsRemaining}s",
+          ),
+        ),
+      ],
     );
   }
 }
