@@ -77,7 +77,7 @@ Google Cloud CLI: For deploying Cloud Run services.
 
 Firebase CLI: For deploying Functions, Rules, and managing the project.
 
-Step 1: Google Cloud & Firebase Setup
+# Step 1: Google Cloud & Firebase Setup
 
 Create a Project: Go to the Firebase Console and create a new project.
 
@@ -95,7 +95,7 @@ Firestore: Create a database in production mode.
 
 Storage: Create a default storage bucket.
 
-Step 2: AI Backend Setup (Cloud Run)
+# Step 2: AI Backend Setup (Cloud Run)
 
 This service processes videos using Gemini.
 
@@ -108,14 +108,14 @@ Update main.py: Replace PROJECT_ID with your actual Google Cloud Project ID.
 
 Build and Deploy:
 
-# 1. Submit Build
+1. Submit Build
 gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/inventory-ai-service .
 
-# 2. Deploy Service (Copy the Service URL for the next step)
+2. Deploy Service (Copy the Service URL for the next step)
 gcloud run deploy inventory-ai-service --image gcr.io/YOUR_PROJECT_ID/inventory-ai-service --platform managed --region asia-southeast1 --no-allow-unauthenticated
 
 
-Step 3: Firebase Functions Setup
+# Step 3: Firebase Functions Setup
 
 This connects Firebase Storage uploads to your AI Service.
 
@@ -149,7 +149,7 @@ Run:
 gcloud run services add-iam-policy-binding inventory-ai-service --member="serviceAccount:YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com" --role="roles/run.invoker" --region=asia-southeast1
 
 
-Step 4: Hardware Setup (ESP32)
+# Step 4: Hardware Setup (ESP32)
 
 Open esp32_cam_inventory_v9_avi.ino in Arduino IDE.
 
@@ -171,16 +171,11 @@ Flash: Connect GPIO0 to GND, press Reset, click Upload. Remove jumper after uplo
 
 Usage: On first boot, if Wi-Fi fails, it starts a BLE server named "InventoryFridge-Setup". Use the mobile app to connect and provision Wi-Fi.
 
-<img width="960" height="1280" alt="image" src="https://github.com/user-attachments/assets/2db71c47-b92a-4ff1-881b-9579301e8438" />
+<img width="600" height="800" alt="image" src="https://github.com/user-attachments/assets/2db71c47-b92a-4ff1-881b-9579301e8438" />
 
-Step 5: Mobile App Setup (Flutter)
+# Step 5: Mobile App Setup (Flutter)
 
 Navigate to the app folder:
-
-cd .
-
-
-Assets: Ensure assets/logo.png exists.
 
 Install Dependencies:
 
