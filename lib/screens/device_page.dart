@@ -325,8 +325,11 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
 
   Future<void> _fetchLogs() async {
     try {
+      final uniqueUrl =
+          'http://${widget.ip}/logs?t=${DateTime.now().millisecondsSinceEpoch}';
+
       final response = await http
-          .get(Uri.parse('http://${widget.ip}/logs'))
+          .get(Uri.parse(uniqueUrl))
           .timeout(const Duration(seconds: 2));
 
       if (response.statusCode == 200 && mounted) {
@@ -359,6 +362,9 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
 
   @override
   Widget build(BuildContext context) {
+    // Access the provider to call functions
+    final provider = Provider.of<DeviceProvider>(context, listen: false);
+
     return Container(
       height: 250,
       width: double.infinity,
@@ -382,28 +388,58 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
                   fontSize: 12,
                 ),
               ),
-              // Group the buttons together on the right
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- NEW CLEAR BUTTON ---
+                  // --- UPDATED CLEAR BUTTON ---
                   IconButton(
                     icon: const Icon(
                       Icons.delete_sweep,
-                      color: Colors.white54,
-                      size: 18,
+                      color: Colors.redAccent,
+                      size: 20,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _logs = ""; // Clear the logs string
-                      });
+                    onPressed: () async {
+                      // 1. Confirm Dialog
+                      bool? confirm = await showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text("Clear Device Logs?"),
+                          content: const Text(
+                            "This will permanently delete the log file on the SD card.",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text(
+                                "Delete",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      // 2. Call API if Confirmed
+                      if (confirm == true) {
+                        bool success = await provider.clearDeviceLogs();
+                        if (success && mounted) {
+                          setState(() {
+                            _logs = "Logs Cleared on Device.";
+                          });
+                        }
+                      }
                     },
-                    tooltip: "Clear Logs",
+                    tooltip: "Delete Logs on Device",
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(width: 15), // Add spacing between buttons
-                  // --- EXISTING AUTO-SCROLL BUTTON ---
+                  const SizedBox(width: 15),
+
+                  // --- AUTO SCROLL BUTTON ---
                   IconButton(
                     icon: Icon(
                       _autoScroll ? Icons.lock_clock : Icons.history,

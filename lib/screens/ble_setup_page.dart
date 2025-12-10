@@ -37,7 +37,7 @@ class _BleSetupPageState extends State<BleSetupPage> {
   String _statusMessage = 'Ready to scan';
 
   String? _deviceIdToUse; 
-  Timer? _successTimer;
+  // REMOVED: Timer? _successTimer; (No longer needed, relying on real feedback)
   
   final FirebaseService _firebaseService = FirebaseService();
   StreamSubscription? _statusSubscription;
@@ -130,13 +130,12 @@ class _BleSetupPageState extends State<BleSetupPage> {
       
       _connectionStateSubscription = _targetDevice!.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
-          if (_isSending) {
-            // Unexpected disconnect during sending usually means the device rebooted (Success)
-            print("Device disconnected during setup -> Assuming Success");
-            _handleSuccess(); 
-          } else {
-             setState(() => _isConnected = false);
-          }
+            // FIX: Do not assume success on disconnect. 
+            // If we were sending, we wait for a specific success message or failure state.
+            // If simply disconnected, we reset UI.
+            if (!_isSending) {
+               setState(() => _isConnected = false);
+            }
         }
       });
 
@@ -166,19 +165,20 @@ class _BleSetupPageState extends State<BleSetupPage> {
     String message = utf8.decode(value);
     debugPrint("BLE MSG: $message");
 
+    // NEW LOGIC: Handle specific states
     if (message.contains("SUCCESS")) {
        _handleSuccess();
     } else if (message.contains("FAILED")) {
        _handleFailure();
+    } else if (message.contains("TESTING")) {
+       setState(() => _statusMessage = "Testing WiFi credentials...");
     } else {
       setState(() => _statusMessage = message);
     }
   }
   
-  // --- UPDATED SUCCESS LOGIC ---
-void _handleSuccess() async {
+  void _handleSuccess() async {
     if (!mounted || !_isSending) return; 
-    _successTimer?.cancel();
     
     // Update status to show we are finalizing
     setState(() => _statusMessage = "Connected! Registering with Cloud...");
@@ -197,10 +197,9 @@ void _handleSuccess() async {
 
        if (!mounted) return;
 
-       // --- THE FIX: Indefinite Dialog ---
        showDialog(
          context: context,
-         barrierDismissible: false, // User CANNOT click outside to close
+         barrierDismissible: false,
          builder: (ctx) => AlertDialog(
            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
            title: const Row(
@@ -237,12 +236,11 @@ void _handleSuccess() async {
   }
 
   void _handleFailure() {
-    _successTimer?.cancel();
     setState(() {
       _isSending = false;
-      _statusMessage = "Setup Failed.";
+      _statusMessage = "WiFi Failed.";
     });
-    _showDialog("Connection Failed", "The device could not connect to WiFi. Please check your password and try again.");
+    _showDialog("Connection Failed", "The device could not connect to WiFi. Please check your SSID/Password and try again.");
   }
 
   void _showDialog(String title, String content) {
@@ -283,11 +281,7 @@ void _handleSuccess() async {
       _statusMessage = 'Sending configuration...';
     });
 
-    // Fallback timer: If the device works but forgets to reply, we assume success after 25s
-    _successTimer = Timer(const Duration(seconds: 25), () {
-        print("Timer expired -> Assuming Success");
-        _handleSuccess();
-    });
+    // NOTE: Removed fallback timer. We now rely strictly on the ESP32 response.
 
     try {
       String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -311,23 +305,16 @@ void _handleSuccess() async {
       await ownerIdChar.write(currentUserId.codeUnits, withoutResponse: false);
       await Future.delayed(const Duration(milliseconds: 200));
       
-      setState(() => _statusMessage = 'Verifying connection (Wait 15s)...');
-      
       // Sending Device ID triggers the test on the ESP32
       await deviceIdChar.write(_deviceIdToUse!.codeUnits, withoutResponse: false);
 
     } catch (e) {
-      // GATT 133 often means the device rebooted successfully before replying
-      if(e.toString().contains("133") || e.toString().contains("GATT_ERROR")) {
-         print("GATT 133 Caught -> Treating as Reboot/Success");
-         _handleSuccess();
-      } else {
-        _successTimer?.cancel();
-        setState(() {
-          _statusMessage = 'Write Error: $e';
-          _isSending = false;
-        });
-      }
+      // GATT 133 is common on some phones, but usually, we shouldn't get it if logic is sound.
+      // If we do get it, we just reset the UI state.
+      setState(() {
+        _statusMessage = 'Write Error: $e';
+        _isSending = false;
+      });
     }
   }
 

@@ -48,18 +48,13 @@ class FirebaseService {
     await _auth.signOut();
   }
 
-  // --- RESTORED: Profile Management ---
+  // --- Profile Management ---
 
   Future<void> updateDisplayName(String newName) async {
     User? user = _auth.currentUser;
     if (user != null) {
-      // 1. Update Auth Profile
       await user.updateDisplayName(newName);
-      
-      // 2. Update Firestore Document
       await _db.collection('users').doc(user.uid).update({'name': newName});
-      
-      // 3. Reload user to ensure local cache is fresh
       await user.reload(); 
     }
   }
@@ -120,7 +115,7 @@ class FirebaseService {
     return _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
-        .where('owner_id', isEqualTo: userId) // Security Filter
+        .where('owner_id', isEqualTo: userId) 
         .orderBy('lastDetected', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
@@ -142,7 +137,7 @@ class FirebaseService {
     final query = _db
         .collection('inventory')
         .where('source_device_id', isEqualTo: deviceId)
-        .where('owner_id', isEqualTo: userId) // Security Filter
+        .where('owner_id', isEqualTo: userId) 
         .where('name_normalized', isEqualTo: normalizedName)
         .where('category', isEqualTo: item.category)
         .limit(1);
@@ -181,10 +176,7 @@ class FirebaseService {
     final user = _auth.currentUser;
     if (user != null) {
       try {
-        // 1. Delete User Profile Document
         await _db.collection('users').doc(user.uid).delete();
-        
-        // 2. Delete the Authentication Account
         await user.delete();
       } on FirebaseAuthException catch (e) {
         if (e.code == 'requires-recent-login') {
@@ -193,28 +185,6 @@ class FirebaseService {
         rethrow;
       }
     }
-  }
-
-  // Listen for pending alerts for the current user
-  Stream<List<Map<String, dynamic>>> getBatchAlertsStream() {
-    final userId = currentUserId;
-    if (userId == null) return Stream.value([]);
-
-    return _db
-        .collection('batch_alerts')
-        .where('owner_id', isEqualTo: userId)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['id'] = doc.id; // Include doc ID
-              return data;
-            }).toList());
-  }
-
-  // Delete the alert (mark as handled)
-  Future<void> dismissBatchAlert(String alertId) async {
-    await _db.collection('batch_alerts').doc(alertId).delete();
   }
 
 }

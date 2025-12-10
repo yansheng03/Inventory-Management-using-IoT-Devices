@@ -15,6 +15,10 @@ class FoodTrackerState extends ChangeNotifier {
   String _deviceId = '';
 
   StreamSubscription? _inventorySubscription;
+  
+  // Stream controller to broadcast batch events to the UI
+  final _batchEventController = StreamController<List<Map<String, dynamic>>>.broadcast();
+  Stream<List<Map<String, dynamic>>> get batchEventStream => _batchEventController.stream;
 
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
@@ -41,6 +45,12 @@ class FoodTrackerState extends ChangeNotifier {
       _inventorySubscription = _service
           .getInventoryStream(_deviceId)
           .listen((items) {
+        
+        // --- Batch Detection Logic ---
+        if (_allItems.isNotEmpty) {
+          _checkForBatchChanges(_allItems, items);
+        }
+        
         _allItems = items;
         _isLoading = false;
         notifyListeners();
@@ -56,9 +66,67 @@ class FoodTrackerState extends ChangeNotifier {
     }
   }
 
+  void _checkForBatchChanges(List<FoodItem> oldItems, List<FoodItem> newItems) {
+    List<Map<String, dynamic>> changes = [];
+    
+    final oldMap = {for (var i in oldItems) i.id: i};
+    final newMap = {for (var i in newItems) i.id: i};
+
+    // 1. Check for Additions (New IDs) and Updates (Quantity Changes)
+    for (var newItem in newItems) {
+      if (!oldMap.containsKey(newItem.id)) {
+        // Brand new item
+        changes.add({
+          'id': newItem.id,
+          'name': newItem.name,
+          'category': newItem.category,
+          'action': 'added',
+        });
+      } else {
+        // Existing item, check quantity
+        final oldItem = oldMap[newItem.id]!;
+        if (newItem.quantity > oldItem.quantity) {
+          changes.add({
+            'id': newItem.id,
+            'name': newItem.name,
+            'category': newItem.category,
+            'action': 'added',
+          });
+        } else if (newItem.quantity < oldItem.quantity) {
+          changes.add({
+            'id': newItem.id,
+            'name': newItem.name,
+            'category': newItem.category,
+            'action': 'removed',
+          });
+        }
+      }
+    }
+
+    // 2. Check for Removals (IDs that disappeared)
+    // Note: Cloud function currently sets quantity to 0 rather than deleting, 
+    // but we handle this case just to be robust.
+    for (var oldItem in oldItems) {
+      if (!newMap.containsKey(oldItem.id)) {
+        changes.add({
+          'id': oldItem.id,
+          'name': oldItem.name,
+          'category': oldItem.category,
+          'action': 'removed',
+        });
+      }
+    }
+
+    // Threshold: Only trigger popup if > 3 items changed at once
+    if (changes.length > 3) {
+      _batchEventController.add(changes);
+    }
+  }
+
   @override
   void dispose() {
     _inventorySubscription?.cancel();
+    _batchEventController.close();
     super.dispose();
   }
 
@@ -73,7 +141,6 @@ class FoodTrackerState extends ChangeNotifier {
   }
 
   Future<void> addItem(FoodItem item) async {
-    // --- IMPROVED: Explicitly check for device connection ---
     if (_deviceId.isEmpty) {
       throw Exception("No device linked. Please go to the Device tab to connect your fridge monitor first.");
     }
@@ -81,7 +148,7 @@ class FoodTrackerState extends ChangeNotifier {
       await _service.addFoodItem(item, _deviceId);
     } catch (e) {
       print("Failed to add item: $e");
-      rethrow; // Pass error to UI
+      rethrow; 
     }
   }
 

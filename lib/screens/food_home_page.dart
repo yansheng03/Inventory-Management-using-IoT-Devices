@@ -8,7 +8,7 @@ import '../widgets/food_item_dialog.dart';
 import '../widgets/category_chip.dart';
 import 'package:capstone_app/screens/profile_page.dart';
 import 'package:capstone_app/screens/device_page.dart';
-import 'package:capstone_app/services/firebase_service.dart';
+// import 'package:capstone_app/services/firebase_service.dart'; // Not directly needed for alerts anymore
 import 'package:capstone_app/widgets/batch_review_dialog.dart';
 import 'dart:async';
 
@@ -21,7 +21,7 @@ class FoodHomePage extends StatefulWidget {
 
 class _FoodHomePageState extends State<FoodHomePage> {
   int _selectedIndex = 1;
-  StreamSubscription? _alertSubscription;
+  StreamSubscription? _batchSubscription;
   final ScrollController _scrollController = ScrollController();
 
   late Map<String, GlobalKey> _categoryKeys;
@@ -38,29 +38,21 @@ class _FoodHomePageState extends State<FoodHomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FoodTrackerState>().initialize();
-      _setupAlertListener();
+      final state = context.read<FoodTrackerState>();
+      state.initialize();
+      _setupBatchListener(state);
     });
     _categoryKeys = {for (var category in _categories) category: GlobalKey()};
   }
 
-  void _setupAlertListener() {
-    final firebaseService = context.read<FirebaseService>();
-    _alertSubscription = firebaseService.getBatchAlertsStream().listen((
-      alerts,
-    ) {
-      if (alerts.isNotEmpty && mounted) {
-        // Just take the first one to show
-        final alert = alerts.first;
-
-        // Prevent stacking dialogs if one is already open?
-        // Simple way: just show it.
+  void _setupBatchListener(FoodTrackerState state) {
+    _batchSubscription = state.batchEventStream.listen((changes) {
+      if (mounted && changes.isNotEmpty) {
         showDialog(
           context: context,
-          barrierDismissible: false, // Force them to press OK
+          barrierDismissible: false, 
           builder: (ctx) => BatchReviewDialog(
-            alertId: alert['id'],
-            changes: alert['changes'] ?? [],
+            changes: changes,
           ),
         );
       }
@@ -69,7 +61,7 @@ class _FoodHomePageState extends State<FoodHomePage> {
 
   @override
   void dispose() {
-    _alertSubscription?.cancel(); // <--- Clean up
+    _batchSubscription?.cancel(); 
     _scrollController.dispose();
     super.dispose();
   }

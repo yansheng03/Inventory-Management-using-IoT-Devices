@@ -230,6 +230,33 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
   }
 
+// --- ADD THIS FUNCTION ---
+  Future<bool> clearDeviceLogs() async {
+    if (!isDeviceFound) return false;
+
+    _isCommunicating = true;
+    notifyListeners();
+
+    bool success = false;
+    try {
+      final response = await http
+          .post(Uri.parse('http://$_deviceIp/clear-logs'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        success = true;
+      } else {
+        _error = 'Failed to clear logs (Code: ${response.statusCode})';
+      }
+    } catch (e) {
+      _error = 'Connection failed while clearing logs.';
+    }
+
+    _isCommunicating = false;
+    notifyListeners();
+    return success;
+  }
+  
   Future<bool> triggerSnapshot() async {
     if (!isDeviceFound) {
       _error = 'Device not connected. Please scan first.';
@@ -263,4 +290,5 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
     return success;
   }
+
 }

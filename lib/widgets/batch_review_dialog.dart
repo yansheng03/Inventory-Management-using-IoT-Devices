@@ -7,12 +7,11 @@ import 'package:capstone_app/services/firebase_service.dart';
 import 'package:capstone_app/widgets/food_item_dialog.dart';
 
 class BatchReviewDialog extends StatelessWidget {
-  final String alertId;
+  // Removed alertId as we handle this locally now
   final List<dynamic> changes;
 
   const BatchReviewDialog({
     super.key,
-    required this.alertId,
     required this.changes,
   });
 
@@ -56,12 +55,12 @@ class BatchReviewDialog extends StatelessWidget {
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           onPressed: () {
                             // Construct a temp FoodItem to pass to the dialog
-                            // We use the ID from the alert so it updates the REAL doc
+                            // We use the ID so it updates the REAL doc
                             final item = FoodItem(
                               id: id,
                               name: name,
                               category: category,
-                              quantity: 1, // Default, will update in dialog
+                              quantity: 1, 
                               lastDetected: DateTime.now(),
                             );
                             
@@ -88,7 +87,7 @@ class BatchReviewDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        // Add Button (as requested)
+        // Add Button
         TextButton.icon(
           icon: const Icon(Icons.add),
           label: const Text("Add New Item"),
@@ -101,8 +100,7 @@ class BatchReviewDialog extends StatelessWidget {
         ),
         ElevatedButton(
           onPressed: () {
-            // Dismiss the alert
-            firebaseService.dismissBatchAlert(alertId);
+            // Simply close the dialog. No DB "dismiss" needed.
             Navigator.of(context).pop();
           },
           child: const Text("OK, All Good"),
