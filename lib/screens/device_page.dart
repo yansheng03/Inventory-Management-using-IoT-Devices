@@ -274,10 +274,12 @@ class _DevicePageState extends State<DevicePage> {
                     onPressed: () => _confirmForgetDevice(context, provider),
                   ),
 
-                  // --- NEW: Live Debug Log Viewer ---
-                  const SizedBox(height: 30),
-                  const Divider(),
-                  DebugLogViewer(ip: provider.deviceIp),
+                  // --- CHANGED: Check UI Preference before showing Logs ---
+                  if (provider.showDebugLogsUI) ...[
+                    const SizedBox(height: 30),
+                    const Divider(),
+                    DebugLogViewer(ip: provider.deviceIp),
+                  ],
                 ],
               ],
             ),
@@ -391,7 +393,7 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- UPDATED CLEAR BUTTON ---
+                  // --- CLEAR BUTTON ---
                   IconButton(
                     icon: const Icon(
                       Icons.delete_sweep,

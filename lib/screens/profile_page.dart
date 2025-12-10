@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:capstone_app/providers/theme_provider.dart';
 import 'package:capstone_app/services/firebase_service.dart';
+import 'package:capstone_app/providers/device_provider.dart'; 
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -178,6 +179,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
+    final deviceProvider = Provider.of<DeviceProvider>(context); // Listen to changes
     final user = firebaseService.currentUser;
 
     return Scaffold(
@@ -238,6 +240,20 @@ class _ProfilePageState extends State<ProfilePage> {
             value: themeProvider.isDarkMode,
             onChanged: (value) {
               themeProvider.toggleTheme();
+            },
+          ),
+
+          // --- CHANGED: UI Toggle for Logs ---
+          SwitchListTile(
+            secondary: const Icon(Icons.terminal),
+            title: const Text('Show Device Logs'),
+            subtitle: const Text(
+              "Show the live log viewer in the Device tab",
+              style: TextStyle(fontSize: 12),
+            ),
+            value: deviceProvider.showDebugLogsUI, // Uses the UI preference
+            onChanged: (value) {
+              deviceProvider.toggleDebugLogsUI(value);
             },
           ),
           

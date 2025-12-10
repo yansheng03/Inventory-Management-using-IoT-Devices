@@ -16,6 +16,12 @@ class DeviceProvider with ChangeNotifier {
   String? _error;
   String _deviceName = 'Smart Fridge Monitor';
   Uint8List? _latestSnapshot;
+  
+  // Device-side logging state (from ESP32)
+  bool _isLoggingEnabled = true;
+
+  // --- NEW: UI Visibility State ---
+  bool _showDebugLogsUI = true; 
 
   String get deviceIp => _deviceIp;
   String get connectionStatus => _connectionStatus;
@@ -25,6 +31,10 @@ class DeviceProvider with ChangeNotifier {
   String? get error => _error;
   String get deviceName => _deviceName;
   Uint8List? get latestSnapshot => _latestSnapshot;
+  bool get isLoggingEnabled => _isLoggingEnabled;
+  
+  // --- NEW: Getter for UI Visibility ---
+  bool get showDebugLogsUI => _showDebugLogsUI;
 
   final String _serviceName = '_http._tcp.local';
 
@@ -38,6 +48,13 @@ class DeviceProvider with ChangeNotifier {
     _error = null;
     _deviceName = 'Smart Fridge Monitor';
     _latestSnapshot = null;
+    _isLoggingEnabled = true;
+    notifyListeners();
+  }
+
+  // --- NEW: Toggle UI Visibility Only ---
+  void toggleDebugLogsUI(bool value) {
+    _showDebugLogsUI = value;
     notifyListeners();
   }
 
@@ -83,7 +100,6 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // --- STAGE 1: mDNS ---
       final MDnsClient client = MDnsClient();
       await client.start();
 
@@ -115,8 +131,6 @@ class DeviceProvider with ChangeNotifier {
       }
       client.stop();
 
-      // --- STAGE 2: Cloud Lookup ---
-      // If mDNS failed, try finding IP from Firestore
       throw Exception('mDNS scan failed. Trying cloud lookup...');
     } catch (e) {
       String? userId = FirebaseAuth.instance.currentUser?.uid;
@@ -215,22 +229,50 @@ class DeviceProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // ESP32 sends {"status":"online"}
         _connectionStatus = data['status']?.toString().toUpperCase() ?? 'Error';
+        
+        if (data.containsKey('logging')) {
+          _isLoggingEnabled = data['logging'] == true;
+        }
+
         syncTimeWithDevice();
       } else {
         _error = 'Status check failed (Code: ${response.statusCode})';
       }
     } catch (e) {
       _error = 'Connection timed out. Check if device is powered.';
-      // We don't reset IP here immediately to allow retrying
     }
 
     _isCommunicating = false;
     notifyListeners();
   }
 
-// --- ADD THIS FUNCTION ---
+  Future<bool> toggleDeviceLogging(bool enable) async {
+    if (!isDeviceFound) return false;
+    _isLoggingEnabled = enable;
+    notifyListeners();
+
+    try {
+      final response = await http
+          .post(Uri.parse('http://$_deviceIp/toggle-logs?enable=${enable ? 1 : 0}'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        _isLoggingEnabled = !enable;
+        _error = 'Failed to toggle logs';
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isLoggingEnabled = !enable;
+      _error = 'Connection failed';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> clearDeviceLogs() async {
     if (!isDeviceFound) return false;
 
@@ -290,5 +332,4 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
     return success;
   }
-
 }
