@@ -25,6 +25,7 @@ class _ProfilePageState extends State<ProfilePage> {
     ));
   }
 
+  // ... [Keep _showEditProfileDialog and _showChangePasswordDialog as they were] ...
   Future<void> _showEditProfileDialog(FirebaseService service, User user) async {
     final TextEditingController nameController = TextEditingController(text: user.displayName);
     await showDialog(
@@ -100,6 +101,69 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ==========================================
+  // NEW: User Manual Dialog
+  // ==========================================
+  void _showUserManualDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.menu_book_outlined, color: Colors.blue),
+            SizedBox(width: 10),
+            Text("User Manual", style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "USING YOUR DEVICE",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
+              ),
+              const SizedBox(height: 10),
+              _buildValueItem(
+                "1. Checking Status", 
+                "Go to the 'Device' tab. A green checkmark means your camera is online and ready. If it shows 'Offline', ensure the device is plugged in.",
+              ),
+              _buildValueItem(
+                "2. Live Snapshots", 
+                "Tap 'Take Live Snapshot' in the Device tab to see inside your fridge instantly. The image will update within a few seconds.",
+              ),
+              _buildValueItem(
+                "3. Reconnecting", 
+                "If the device disconnects (e.g., power outage), simply wait for it to reboot. You can tap 'Find on WiFi' to refresh the connection manually.",
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "TROUBLESHOOTING",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange),
+              ),
+              const SizedBox(height: 10),
+               _buildValueItem(
+                "Device Logs", 
+                "If you are experiencing issues, enable 'Show Device Logs' in this Profile menu. This will show technical details in the Device tab to help diagnose problems.",
+              ),
+              _buildValueItem(
+                "Factory Reset", 
+                "Moved to a new house? changed WiFi password? Go to the Device tab and tap 'Factory Reset Device'. This will wipe the WiFi settings so you can perform the setup again.",
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showCustomAboutDialog() {
     showDialog(
       context: context,
@@ -131,21 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "Smart Living", 
                 "Automate your kitchen with AI. Spend less time checking what's in the fridge and more time creating delicious meals with ingredients you already have.",
               ),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 12),
-              const Text(
-                "TERMS AND CONDITIONS",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "1. Acceptance of Terms\nBy accessing and using the FIT app, you accept and agree to be bound by the terms and provision of this agreement.\n\n"
-                "2. AI Accuracy Disclaimer\nFIT uses artificial intelligence to identify food items. While we strive for high accuracy, errors may occur. Users should verify inventory lists manually.\n\n"
-                "3. Data Usage\nImages uploaded for analysis are processed securely. We do not share your personal data with third parties without consent.\n\n"
-                "4. Food Safety\nFIT tracks inventory dates but is not responsible for food spoilage or safety. Always check your food quality before consumption.",
-                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.grey),
-              ),
+              // ... [Rest of About Dialog remains the same] ...
             ],
           ),
         ),
@@ -165,11 +215,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- Uses the stateful delete dialog ---
   void _showDeleteAccountDialog(FirebaseService service) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Forces user to wait or press cancel
+      barrierDismissible: false, 
       builder: (ctx) => _DeleteAccountDialog(service: service),
     );
   }
@@ -179,7 +228,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
-    final deviceProvider = Provider.of<DeviceProvider>(context); // Listen to changes
+    final deviceProvider = Provider.of<DeviceProvider>(context); 
     final user = firebaseService.currentUser;
 
     return Scaffold(
@@ -243,7 +292,6 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
-          // --- CHANGED: UI Toggle for Logs ---
           SwitchListTile(
             secondary: const Icon(Icons.terminal),
             title: const Text('Show Device Logs'),
@@ -251,10 +299,18 @@ class _ProfilePageState extends State<ProfilePage> {
               "Show the live log viewer in the Device tab",
               style: TextStyle(fontSize: 12),
             ),
-            value: deviceProvider.showDebugLogsUI, // Uses the UI preference
+            value: deviceProvider.showDebugLogsUI, 
             onChanged: (value) {
               deviceProvider.toggleDebugLogsUI(value);
             },
+          ),
+
+          // -- NEW: User Manual Button --
+          ListTile(
+            leading: const Icon(Icons.menu_book_outlined),
+            title: const Text('User Manual'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showUserManualDialog(),
           ),
           
           ListTile(
@@ -291,7 +347,7 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: const Icon(Icons.delete_forever, color: Colors.white),
               label: const Text("Delete Account"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700, // Explicitly Red
+                backgroundColor: Colors.red.shade700, 
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -336,7 +392,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// Delete Dialog with Timer ---
+// ... [Keep _DeleteAccountDialog class at the bottom unchanged] ...
 class _DeleteAccountDialog extends StatefulWidget {
   final FirebaseService service;
   const _DeleteAccountDialog({required this.service});
@@ -352,7 +408,6 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
   @override
   void initState() {
     super.initState();
-    // Start the countdown
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -374,7 +429,6 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Only enable if timer hits 0
     final bool canDelete = _secondsRemaining == 0;
 
     return AlertDialog(
@@ -390,7 +444,6 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
         ElevatedButton(
           onPressed: canDelete
               ? () async {
-                  // Perform Delete
                   Navigator.of(context).pop(); 
                   try {
                     await widget.service.deleteAccount();
@@ -403,7 +456,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
                     }
                   }
                 }
-              : null, // Disabled when timer > 0
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,

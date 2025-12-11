@@ -210,7 +210,7 @@ class _DevicePageState extends State<DevicePage> {
                   _buildGuideStep(
                     "1",
                     "Power On",
-                    "Plug in the ESP32-CAM. If it was previously set up, you may need to reset it first.",
+                    "Plug in and turn on the power for the ESP32-CAM. If it was previously set up, try 'Find on WiFi' first.",
                   ),
                   _buildGuideStep(
                     "2",
@@ -219,13 +219,13 @@ class _DevicePageState extends State<DevicePage> {
                   ),
                   _buildGuideStep(
                     "3",
-                    "Send WiFi Info",
-                    "Enter your home WiFi credentials. The camera will save them and restart automatically.",
+                    "Send WiFi Info (Only 2.4GHz Wifi can be connected)",
+                    "Enter your home WiFi credentials (2.4GHz). The camera will save them and restart automatically.",
                   ),
                   _buildGuideStep(
                     "4",
-                    "Control",
-                    "Once the camera restarts (solid flash or LED), tap 'Find on WiFi' to start using it.",
+                    "Connect via the App and Enjoy!",
+                    "Once the camera restarts, tap 'Find on WiFi' to start using it. Please allow some time for it to connect to your network before pressing it.",
                   ),
                 ] else ...[
                   // --- Connected Controls ---
