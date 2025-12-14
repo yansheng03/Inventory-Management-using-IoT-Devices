@@ -39,10 +39,6 @@ async def analyze_movement(request: VideoRequest):
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         blob.download_to_filename(local_filename)
-        
-        # Check if this is a directory scan (from previous context) or single file
-        # For simplicity assuming single file or triggered sequence here. 
-        # (If using the sequence logic from before, ensure that code is preserved/merged)
 
         # 3. Prepare the Prompt
         # explicit categories list
