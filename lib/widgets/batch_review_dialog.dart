@@ -6,14 +6,27 @@ import 'package:capstone_app/models/food_item.dart';
 import 'package:capstone_app/services/firebase_service.dart';
 import 'package:capstone_app/widgets/food_item_dialog.dart';
 
-class BatchReviewDialog extends StatelessWidget {
-  // Removed alertId as we handle this locally now
+class BatchReviewDialog extends StatefulWidget {
   final List<dynamic> changes;
 
   const BatchReviewDialog({
     super.key,
     required this.changes,
   });
+
+  @override
+  State<BatchReviewDialog> createState() => _BatchReviewDialogState();
+}
+
+class _BatchReviewDialogState extends State<BatchReviewDialog> {
+  late List<dynamic> _localChanges;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create a local copy of the list so we can modify it (delete items)
+    _localChanges = List.from(widget.changes);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,58 +43,76 @@ class BatchReviewDialog extends StatelessWidget {
             const Text("The following items were recently changed:"),
             const SizedBox(height: 10),
             Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: changes.length,
-                itemBuilder: (context, index) {
-                  final change = changes[index];
-                  final name = change['name'] ?? 'Unknown';
-                  final action = change['action'] ?? 'unknown';
-                  final category = change['category'] ?? 'others';
-                  final id = change['id'];
+              child: _localChanges.isEmpty
+                  ? const Center(child: Text("All items handled."))
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _localChanges.length,
+                      itemBuilder: (context, index) {
+                        final change = _localChanges[index];
+                        final name = change['name'] ?? 'Unknown';
+                        final action = change['action'] ?? 'unknown';
+                        final category = change['category'] ?? 'others';
+                        final quantity = change['quantity'] ?? 0; // NEW: Get Qty
+                        final id = change['id'];
 
-                  return ListTile(
-                    leading: Icon(
-                      action == 'added' ? Icons.add_circle : Icons.remove_circle,
-                      color: action == 'added' ? Colors.green : Colors.red,
+                        return ListTile(
+                          leading: Icon(
+                            action == 'added' ? Icons.add_circle : Icons.remove_circle,
+                            color: action == 'added' ? Colors.green : Colors.red,
+                          ),
+                          title: Text(name.toUpperCase()),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("$action - $category"),
+                              // NEW: Display Quantity
+                              Text(
+                                "Quantity: $quantity",
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          isThreeLine: true,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Edit Button
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () {
+                                  final item = FoodItem(
+                                    id: id,
+                                    name: name,
+                                    category: category,
+                                    quantity: quantity, 
+                                    lastDetected: DateTime.now(),
+                                  );
+                                  
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => FoodItemDialog(existingItem: item),
+                                  );
+                                },
+                              ),
+                              // Delete Button
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.grey),
+                                onPressed: () {
+                                   // 1. Delete from Firebase
+                                   firebaseService.deleteFoodItem(id);
+                                   
+                                   // 2. Remove from UI immediately
+                                   setState(() {
+                                     _localChanges.removeAt(index);
+                                   });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(name.toUpperCase()),
-                    subtitle: Text("$action - $category"),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Edit Button
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () {
-                            // Construct a temp FoodItem to pass to the dialog
-                            // We use the ID so it updates the REAL doc
-                            final item = FoodItem(
-                              id: id,
-                              name: name,
-                              category: category,
-                              quantity: 1, 
-                              lastDetected: DateTime.now(),
-                            );
-                            
-                            showDialog(
-                              context: context,
-                              builder: (_) => FoodItemDialog(existingItem: item),
-                            );
-                          },
-                        ),
-                        // Delete Button
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.grey),
-                          onPressed: () {
-                             firebaseService.deleteFoodItem(id);
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -100,10 +131,9 @@ class BatchReviewDialog extends StatelessWidget {
         ),
         ElevatedButton(
           onPressed: () {
-            // Simply close the dialog. No DB "dismiss" needed.
             Navigator.of(context).pop();
           },
-          child: const Text("OK, All Good"),
+          child: const Text("OK"),
         ),
       ],
     );

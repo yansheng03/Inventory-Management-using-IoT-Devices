@@ -15,10 +15,12 @@ class FoodTrackerState extends ChangeNotifier {
   String _deviceId = '';
 
   StreamSubscription? _inventorySubscription;
-  
+
   // Stream controller to broadcast batch events to the UI
-  final _batchEventController = StreamController<List<Map<String, dynamic>>>.broadcast();
-  Stream<List<Map<String, dynamic>>> get batchEventStream => _batchEventController.stream;
+  final _batchEventController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
+  Stream<List<Map<String, dynamic>>> get batchEventStream =>
+      _batchEventController.stream;
 
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
@@ -26,8 +28,9 @@ class FoodTrackerState extends ChangeNotifier {
     return _allItems.where((item) {
       final matchesCategory =
           _selectedCategory == 'all' || item.category == _selectedCategory;
-      final matchesSearch =
-          item.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesSearch = item.name.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
       return matchesCategory && matchesSearch;
     }).toList();
   }
@@ -40,25 +43,27 @@ class FoodTrackerState extends ChangeNotifier {
     _deviceId = await _service.getUserDevice() ?? '';
     _allItems = [];
     await _inventorySubscription?.cancel();
-    
+
     if (_deviceId.isNotEmpty) {
       _inventorySubscription = _service
           .getInventoryStream(_deviceId)
-          .listen((items) {
-        
-        // --- Batch Detection Logic ---
-        if (_allItems.isNotEmpty) {
-          _checkForBatchChanges(_allItems, items);
-        }
-        
-        _allItems = items;
-        _isLoading = false;
-        notifyListeners();
-      }, onError: (e) {
-        print("Error in inventory stream: $e");
-        _isLoading = false;
-        notifyListeners();
-      });
+          .listen(
+            (items) {
+              // --- Batch Detection Logic ---
+              if (_allItems.isNotEmpty) {
+                _checkForBatchChanges(_allItems, items);
+              }
+
+              _allItems = items;
+              _isLoading = false;
+              notifyListeners();
+            },
+            onError: (e) {
+              print("Error in inventory stream: $e");
+              _isLoading = false;
+              notifyListeners();
+            },
+          );
     } else {
       print("No device ID found during initialization.");
       _isLoading = false;
@@ -68,7 +73,7 @@ class FoodTrackerState extends ChangeNotifier {
 
   void _checkForBatchChanges(List<FoodItem> oldItems, List<FoodItem> newItems) {
     List<Map<String, dynamic>> changes = [];
-    
+
     final oldMap = {for (var i in oldItems) i.id: i};
     final newMap = {for (var i in newItems) i.id: i};
 
@@ -80,6 +85,7 @@ class FoodTrackerState extends ChangeNotifier {
           'id': newItem.id,
           'name': newItem.name,
           'category': newItem.category,
+          'quantity': newItem.quantity, // CHANGED: Added quantity
           'action': 'added',
         });
       } else {
@@ -90,6 +96,7 @@ class FoodTrackerState extends ChangeNotifier {
             'id': newItem.id,
             'name': newItem.name,
             'category': newItem.category,
+            'quantity': newItem.quantity, // CHANGED: Added quantity
             'action': 'added',
           });
         } else if (newItem.quantity < oldItem.quantity) {
@@ -97,6 +104,7 @@ class FoodTrackerState extends ChangeNotifier {
             'id': newItem.id,
             'name': newItem.name,
             'category': newItem.category,
+            'quantity': newItem.quantity, // CHANGED: Added quantity
             'action': 'removed',
           });
         }
@@ -104,14 +112,13 @@ class FoodTrackerState extends ChangeNotifier {
     }
 
     // 2. Check for Removals (IDs that disappeared)
-    // Note: Cloud function currently sets quantity to 0 rather than deleting, 
-    // but we handle this case just to be robust.
     for (var oldItem in oldItems) {
       if (!newMap.containsKey(oldItem.id)) {
         changes.add({
           'id': oldItem.id,
           'name': oldItem.name,
           'category': oldItem.category,
+          'quantity': 0, // CHANGED: Item gone, qty is 0
           'action': 'removed',
         });
       }
@@ -142,13 +149,15 @@ class FoodTrackerState extends ChangeNotifier {
 
   Future<void> addItem(FoodItem item) async {
     if (_deviceId.isEmpty) {
-      throw Exception("No device linked. Please go to the Device tab to connect your fridge monitor first.");
+      throw Exception(
+        "No device linked. Please go to the Device tab to connect your fridge monitor first.",
+      );
     }
     try {
       await _service.addFoodItem(item, _deviceId);
     } catch (e) {
       print("Failed to add item: $e");
-      rethrow; 
+      rethrow;
     }
   }
 
@@ -163,7 +172,7 @@ class FoodTrackerState extends ChangeNotifier {
 
   Future<void> deleteItem(String id) async {
     try {
-      await _service.deleteFoodItem(id); 
+      await _service.deleteFoodItem(id);
     } catch (e) {
       print("Failed to delete item: $e");
       rethrow;

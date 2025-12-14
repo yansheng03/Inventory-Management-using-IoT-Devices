@@ -42,6 +42,24 @@ const unsigned long MAX_RECORD_TIME = 60000;
 const unsigned long WARMUP_TIME = 15000;
 const unsigned long PIR_POLL_INTERVAL = 150;
 
+
+#define PIR_PIN 13
+#define STATUS_LED 33
+#define FLASH_LED_PIN 4
+#define PIR_ACTIVE_STATE LOW
+
+#define TIME_OFFSET 28800  // UTC+8
+
+// --- STORAGE SETTINGS ---
+const unsigned long FILE_RETENTION_SEC = 172800;  // 2 Days
+const unsigned long LOG_RETENTION_SEC = 172800;   // 2 Days
+const unsigned long CLEANUP_INTERVAL = 86400000;  // 24 Hours
+
+const unsigned long RECORD_EXTENSION_TIME = 10000;
+const unsigned long MAX_RECORD_TIME = 60000;
+const unsigned long WARMUP_TIME = 15000;
+const unsigned long PIR_POLL_INTERVAL = 150;
+
 // Pins
 #define PWDN_GPIO_NUM 32
 #define RESET_GPIO_NUM -1
@@ -277,8 +295,8 @@ bool cameraInit() {
   config_cam.pin_reset = RESET_GPIO_NUM;
   config_cam.xclk_freq_hz = 20000000;
   config_cam.pixel_format = PIXFORMAT_JPEG;
-  config_cam.frame_size = FRAMESIZE_QVGA;
-  config_cam.jpeg_quality = 12;
+  config_cam.frame_size = FRAMESIZE_VGA;
+  config_cam.jpeg_quality = 10;
   config_cam.fb_count = 1;
 
   if (esp_camera_init(&config_cam) != ESP_OK) {
@@ -657,7 +675,7 @@ void writeAviHeader(File &f) {
 
   writeFourCC(f, "avih");
   writeLE32(f, 56);
-  writeLE32(f, 100000);
+  writeLE32(f, 200000);
   writeLE32(f, 0);
   writeLE32(f, 0);
   writeLE32(f, 0);
@@ -665,8 +683,8 @@ void writeAviHeader(File &f) {
   writeLE32(f, 0);
   writeLE32(f, 1);
   writeLE32(f, 0);
-  writeLE32(f, 320);
-  writeLE32(f, 240);
+  writeLE32(f, 640);
+  writeLE32(f, 480);
   writeLE32(f, 0);
   writeLE32(f, 0);
   writeLE32(f, 0);
@@ -683,7 +701,7 @@ void writeAviHeader(File &f) {
   writeLE32(f, 0);
   writeLE32(f, 0);
   writeLE32(f, 1);
-  writeLE32(f, 10);
+  writeLE32(f, 5);
   writeLE32(f, 0);
   writeLE32(f, 0);
   writeLE32(f, 0);
@@ -694,8 +712,8 @@ void writeAviHeader(File &f) {
   writeFourCC(f, "strf");
   writeLE32(f, 40);
   writeLE32(f, 40);
-  writeLE32(f, 320);
-  writeLE32(f, 240);
+  writeLE32(f, 640);
+  writeLE32(f, 480);
   writeLE16(f, 1);
   writeLE16(f, 24);
   writeFourCC(f, "MJPG");
