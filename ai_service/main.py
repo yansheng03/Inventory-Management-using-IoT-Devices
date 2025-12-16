@@ -44,7 +44,7 @@ async def analyze_movement(request: VideoRequest):
         # explicit categories list
         categories = [
             "vegetables", "fruit", "meat", "seafood", "dairy", 
-            "bakery", "cooked", "drinks", "condiments", "others"
+            "bakery", "leftover", "drinks", "condiments", "others"
         ]
         
         prompt = f"""
@@ -57,8 +57,12 @@ async def analyze_movement(request: VideoRequest):
         Rules:
         - If a hand puts an item IN, it is 'added'.
         - If a hand takes an item OUT, it is 'removed'.
+        - If multiple items are added/removed (e.g., 2 Apples), you MUST list them as separate objects in the JSON array.
+        - Example: If 2 apples are added, the 'added' list should contain TWO objects: [{{"name": "Apple", ...}}, {{"name": "Apple", ...}}].
         - If nothing happens, return empty lists.
+        - The item being tracked will mostly be held by a hand.
         - Ignore the hand itself. Focus on the object.
+        - 
         
         Return ONLY raw JSON. Do not use Markdown formatting.
         The output must strictly follow this structure:

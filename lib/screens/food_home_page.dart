@@ -8,7 +8,6 @@ import '../widgets/food_item_dialog.dart';
 import '../widgets/category_chip.dart';
 import 'package:capstone_app/screens/profile_page.dart';
 import 'package:capstone_app/screens/device_page.dart';
-// import 'package:capstone_app/services/firebase_service.dart'; // Not directly needed for alerts anymore
 import 'package:capstone_app/widgets/batch_review_dialog.dart';
 import 'dart:async';
 
@@ -37,14 +36,17 @@ class _FoodHomePageState extends State<FoodHomePage> {
   @override
   void initState() {
     super.initState();
+    _categoryKeys = {for (var category in _categories) category: GlobalKey()};
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = context.read<FoodTrackerState>();
       state.initialize();
+      // --- ADDED: Only this listener was needed ---
       _setupBatchListener(state);
     });
-    _categoryKeys = {for (var category in _categories) category: GlobalKey()};
   }
 
+  // --- ADDED: Logic to trigger the pop-up ---
   void _setupBatchListener(FoodTrackerState state) {
     _batchSubscription = state.batchEventStream.listen((changes) {
       if (mounted && changes.isNotEmpty) {
@@ -139,6 +141,7 @@ class _FoodHomePageState extends State<FoodHomePage> {
     );
   }
 
+  // --- RESTORED: Your original UI layout ---
   Widget _buildHomePageContent(FoodTrackerState appState) {
     return Column(
       children: [

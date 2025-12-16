@@ -125,7 +125,13 @@ class FirebaseService {
 
   Future<void> updateFoodItem(FoodItem item) async {
     if (item.id.isEmpty) return;
-    await _db.collection('inventory').doc(item.id).update(item.toFirestoreUpdate());
+    
+    // --- FIX: Delete if quantity <= 0 ---
+    if (item.quantity <= 0) {
+      await deleteFoodItem(item.id);
+    } else {
+      await _db.collection('inventory').doc(item.id).update(item.toFirestoreUpdate());
+    }
   }
 
   Future<void> addFoodItem(FoodItem item, String deviceId) async {
@@ -146,25 +152,32 @@ class FirebaseService {
 
     if (snapshot.docs.isEmpty) {
       // CREATE NEW ITEM
-      await _db.collection('inventory').add({
-        'name': item.name,
-        'name_normalized': normalizedName,
-        'quantity': item.quantity,
-        'category': item.category,
-        'lastDetected': Timestamp.fromDate(item.lastDetected),
-        'source_device_id': deviceId,
-        'owner_id': userId,
-      });
+      // Ensure we don't create items with <= 0 quantity
+      if (item.quantity > 0) {
+        await _db.collection('inventory').add({
+          'name': item.name,
+          'name_normalized': normalizedName,
+          'quantity': item.quantity,
+          'category': item.category,
+          'lastDetected': Timestamp.fromDate(item.lastDetected),
+          'source_device_id': deviceId,
+          'owner_id': userId,
+        });
+      }
     } else {
       // UPDATE EXISTING ITEM
       final existingDoc = snapshot.docs.first;
       final existingQuantity = (existingDoc.data()['quantity'] ?? 0) as int;
       final newQuantity = existingQuantity + item.quantity;
       
-      await _db.collection('inventory').doc(existingDoc.id).update({
-        'quantity': newQuantity,
-        'lastDetected': Timestamp.fromDate(item.lastDetected),
-      });
+      if (newQuantity <= 0) {
+        await deleteFoodItem(existingDoc.id);
+      } else {
+        await _db.collection('inventory').doc(existingDoc.id).update({
+          'quantity': newQuantity,
+          'lastDetected': Timestamp.fromDate(item.lastDetected),
+        });
+      }
     }
   }
 
@@ -186,5 +199,4 @@ class FirebaseService {
       }
     }
   }
-
 }

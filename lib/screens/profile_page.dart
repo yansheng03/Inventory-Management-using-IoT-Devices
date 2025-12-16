@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:capstone_app/providers/theme_provider.dart';
 import 'package:capstone_app/services/firebase_service.dart';
 import 'package:capstone_app/providers/device_provider.dart'; 
+import 'package:capstone_app/providers/food_tracker_state.dart'; // NEW: Import State
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -25,7 +26,6 @@ class _ProfilePageState extends State<ProfilePage> {
     ));
   }
 
-  // ... [Keep _showEditProfileDialog and _showChangePasswordDialog as they were] ...
   Future<void> _showEditProfileDialog(FirebaseService service, User user) async {
     final TextEditingController nameController = TextEditingController(text: user.displayName);
     await showDialog(
@@ -101,9 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ==========================================
-  // NEW: User Manual Dialog
-  // ==========================================
   void _showUserManualDialog() {
     showDialog(
       context: context,
@@ -185,17 +182,12 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 10),
               _buildValueItem(
                 "Prevent Food Waste", 
-                "Every year, millions of tons of food go to waste. FIT helps you track expiry and freshness, ensuring you use what you buy before it's too late.",
+                "FIT helps you track expiry and freshness, ensuring you use what you buy before it's too late.",
               ),
               _buildValueItem(
                 "Save Money", 
-                "Stop throwing cash in the bin. By managing your inventory efficiently, you avoid overbuying and get the most value out of your grocery budget.",
+                "By managing your inventory efficiently, you avoid overbuying and get the most value out of your grocery budget.",
               ),
-              _buildValueItem(
-                "Smart Living", 
-                "Automate your kitchen with AI. Spend less time checking what's in the fridge and more time creating delicious meals with ingredients you already have.",
-              ),
-              // ... [Rest of About Dialog remains the same] ...
             ],
           ),
         ),
@@ -229,6 +221,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     final deviceProvider = Provider.of<DeviceProvider>(context); 
+    // --- NEW: Access FoodTrackerState ---
+    final foodTrackerState = Provider.of<FoodTrackerState>(context);
     final user = firebaseService.currentUser;
 
     return Scaffold(
@@ -292,6 +286,20 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
+          // --- NEW: Auto-Accept Switch ---
+          SwitchListTile(
+            secondary: const Icon(Icons.check_circle_outline),
+            title: const Text('Show Batch Review Pop-up'),
+            subtitle: const Text(
+              "Automatically accept all batch changes without showing the review dialog",
+              style: TextStyle(fontSize: 12),
+            ),
+            value: foodTrackerState.autoAcceptChanges, 
+            onChanged: (value) {
+              foodTrackerState.toggleAutoAccept(value);
+            },
+          ),
+
           SwitchListTile(
             secondary: const Icon(Icons.terminal),
             title: const Text('Show Device Logs'),
@@ -305,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
-          // -- NEW: User Manual Button --
+          // -- Info Section --
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),
             title: const Text('User Manual'),
@@ -392,7 +400,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// ... [Keep _DeleteAccountDialog class at the bottom unchanged] ...
 class _DeleteAccountDialog extends StatefulWidget {
   final FirebaseService service;
   const _DeleteAccountDialog({required this.service});

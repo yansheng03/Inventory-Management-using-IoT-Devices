@@ -24,7 +24,6 @@ class _FoodItemDialogState extends State<FoodItemDialog> {
   bool _isAdding = false;
   bool get _isEditing => widget.existingItem != null;
 
-  // --- UPDATED: Use Centralized List ---
   final List<String> _categories = FoodItem.validCategories;
 
   @override
@@ -67,6 +66,10 @@ class _FoodItemDialogState extends State<FoodItemDialog> {
             lastDetected: DateTime.now(), 
           );
           await foodTrackerState.updateItem(updatedItem);
+          
+          // --- FIX: Return the updated item ---
+          if (mounted) Navigator.pop(context, updatedItem); 
+
         } else {
           final newItem = FoodItem(
             name: name,
@@ -75,13 +78,14 @@ class _FoodItemDialogState extends State<FoodItemDialog> {
             lastDetected: DateTime.now(),
           );
           await foodTrackerState.addItem(newItem); 
+          
+          // --- FIX: Return the new item ---
+          // Since Firestore generates the ID, we return a temp object for UI display
+          // Ideally, addItem would return the ID, but for the UI update, this is enough.
+          if (mounted) Navigator.pop(context, newItem);
         }
 
-        if (mounted) Navigator.pop(context);
-
       } catch (e) {
-        // --- IMPROVED: Show specific error message ---
-        // Strip "Exception: " prefix if present for cleaner UI
         final message = e.toString().replaceAll("Exception: ", "");
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(

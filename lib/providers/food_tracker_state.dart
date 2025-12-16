@@ -14,9 +14,11 @@ class FoodTrackerState extends ChangeNotifier {
   String _searchQuery = '';
   String _deviceId = '';
 
+  // --- NEW: Preference Flag ---
+  bool _autoAcceptChanges = false;
+
   StreamSubscription? _inventorySubscription;
 
-  // Stream controller to broadcast batch events to the UI
   final _batchEventController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
   Stream<List<Map<String, dynamic>>> get batchEventStream =>
@@ -24,6 +26,10 @@ class FoodTrackerState extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
+
+  // --- NEW: Getter ---
+  bool get autoAcceptChanges => _autoAcceptChanges;
+
   List<FoodItem> get filteredItems {
     return _allItems.where((item) {
       final matchesCategory =
@@ -37,6 +43,12 @@ class FoodTrackerState extends ChangeNotifier {
 
   FoodTrackerState(this._service);
 
+  // --- NEW: Setter to toggle the setting ---
+  void toggleAutoAccept(bool value) {
+    _autoAcceptChanges = value;
+    notifyListeners();
+  }
+
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
@@ -49,8 +61,8 @@ class FoodTrackerState extends ChangeNotifier {
           .getInventoryStream(_deviceId)
           .listen(
             (items) {
-              // --- Batch Detection Logic ---
-              if (_allItems.isNotEmpty) {
+              // --- UPDATED: Check preference before running logic ---
+              if (_allItems.isNotEmpty && !_autoAcceptChanges) {
                 _checkForBatchChanges(_allItems, items);
               }
 
@@ -72,31 +84,31 @@ class FoodTrackerState extends ChangeNotifier {
   }
 
   void _checkForBatchChanges(List<FoodItem> oldItems, List<FoodItem> newItems) {
+    // If auto-accept is ON, we simply stop here.
+    if (_autoAcceptChanges) return;
+
     List<Map<String, dynamic>> changes = [];
 
     final oldMap = {for (var i in oldItems) i.id: i};
     final newMap = {for (var i in newItems) i.id: i};
 
-    // 1. Check for Additions (New IDs) and Updates (Quantity Changes)
     for (var newItem in newItems) {
       if (!oldMap.containsKey(newItem.id)) {
-        // Brand new item
         changes.add({
           'id': newItem.id,
           'name': newItem.name,
           'category': newItem.category,
-          'quantity': newItem.quantity, // CHANGED: Added quantity
+          'quantity': newItem.quantity,
           'action': 'added',
         });
       } else {
-        // Existing item, check quantity
         final oldItem = oldMap[newItem.id]!;
         if (newItem.quantity > oldItem.quantity) {
           changes.add({
             'id': newItem.id,
             'name': newItem.name,
             'category': newItem.category,
-            'quantity': newItem.quantity, // CHANGED: Added quantity
+            'quantity': newItem.quantity,
             'action': 'added',
           });
         } else if (newItem.quantity < oldItem.quantity) {
@@ -104,28 +116,26 @@ class FoodTrackerState extends ChangeNotifier {
             'id': newItem.id,
             'name': newItem.name,
             'category': newItem.category,
-            'quantity': newItem.quantity, // CHANGED: Added quantity
+            'quantity': newItem.quantity,
             'action': 'removed',
           });
         }
       }
     }
 
-    // 2. Check for Removals (IDs that disappeared)
     for (var oldItem in oldItems) {
       if (!newMap.containsKey(oldItem.id)) {
         changes.add({
           'id': oldItem.id,
           'name': oldItem.name,
           'category': oldItem.category,
-          'quantity': 0, // CHANGED: Item gone, qty is 0
+          'quantity': 0,
           'action': 'removed',
         });
       }
     }
 
-    // Threshold: Only trigger popup if > 3 items changed at once
-    if (changes.length > 3) {
+    if (changes.length >= 3) {
       _batchEventController.add(changes);
     }
   }
@@ -153,29 +163,14 @@ class FoodTrackerState extends ChangeNotifier {
         "No device linked. Please go to the Device tab to connect your fridge monitor first.",
       );
     }
-    try {
-      await _service.addFoodItem(item, _deviceId);
-    } catch (e) {
-      print("Failed to add item: $e");
-      rethrow;
-    }
+    await _service.addFoodItem(item, _deviceId);
   }
 
   Future<void> updateItem(FoodItem item) async {
-    try {
-      await _service.updateFoodItem(item);
-    } catch (e) {
-      print("Failed to update item: $e");
-      rethrow;
-    }
+    await _service.updateFoodItem(item);
   }
 
   Future<void> deleteItem(String id) async {
-    try {
-      await _service.deleteFoodItem(id);
-    } catch (e) {
-      print("Failed to delete item: $e");
-      rethrow;
-    }
+    await _service.deleteFoodItem(id);
   }
 }
