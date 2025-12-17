@@ -44,13 +44,13 @@ async def analyze_movement(request: VideoRequest):
         # explicit categories list
         categories = [
             "vegetables", "fruit", "meat", "seafood", "dairy", 
-            "bakery", "leftover", "drinks", "condiments", "others"
+            "bakery", "leftovers", "drinks", "condiments", "others"
         ]
         
         prompt = f"""
         You are a smart fridge inventory manager. Analyze this media content carefully.
         
-        Did an item enter the fridge (Added) or leave the fridge (Removed)?
+        Did an item enter the fridge (Added) or leave the fridge (Removed)? The item being tracked will mostly be held by a hand.
         Identify the specific item and categorize it into one of these exact categories:
         {categories}
         
@@ -58,12 +58,13 @@ async def analyze_movement(request: VideoRequest):
         - If a hand puts an item IN, it is 'added'.
         - If a hand takes an item OUT, it is 'removed'.
         - If multiple items are added/removed (e.g., 2 Apples), you MUST list them as separate objects in the JSON array.
+        - **NAMING FORMAT: [Brand Name] [Product Name]** (e.g., 'Maggi Chicken Stock').
+        - **CLEANUP RULE: Remove packaging words.** (Do NOT use words like 'Box', 'Bottle', 'Can', 'Packet', '200g', 'Value Pack').
+        - **CLEANUP RULE: Remove marketing adjectives.** (Do NOT use 'Delicious', 'Fresh', 'Premium').
         - Example: If 2 apples are added, the 'added' list should contain TWO objects: [{{"name": "Apple", ...}}, {{"name": "Apple", ...}}].
         - If nothing happens, return empty lists.
-        - The item being tracked will mostly be held by a hand.
         - Ignore the hand itself. Focus on the object.
-        - 
-        
+
         Return ONLY raw JSON. Do not use Markdown formatting.
         The output must strictly follow this structure:
         {{

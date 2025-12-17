@@ -289,7 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // --- NEW: Auto-Accept Switch ---
           SwitchListTile(
             secondary: const Icon(Icons.check_circle_outline),
-            title: const Text('Show Batch Review Pop-up'),
+            title: const Text('Hide Batch Review Pop-up'),
             subtitle: const Text(
               "Automatically accept all batch changes without showing the review dialog",
               style: TextStyle(fontSize: 12),
