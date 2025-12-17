@@ -25,42 +25,26 @@
 #define API_KEY "" //Enter your database API KEY
 #define STORAGE_BUCKET "" //Enter your database storage bucket
 
+// --- HARDWARE SETTINGS ---
 #define PIR_PIN 13
 #define STATUS_LED 33
 #define FLASH_LED_PIN 4
-#define PIR_ACTIVE_STATE LOW
 
-#define TIME_OFFSET 28800  // UTC+8 for Malaysia time
+#define PIR_ACTIVE_STATE LOW 
+
+#define TIME_OFFSET 28800  // UTC+8 (Singapore/Malaysia)
 
 // --- STORAGE SETTINGS ---
 const unsigned long FILE_RETENTION_SEC = 172800;  // 2 Days
 const unsigned long LOG_RETENTION_SEC = 172800;   // 2 Days
 const unsigned long CLEANUP_INTERVAL = 86400000;  // 24 Hours
 
-const unsigned long RECORD_EXTENSION_TIME = 10000;
-const unsigned long MAX_RECORD_TIME = 60000;
+const unsigned long RECORD_EXTENSION_TIME = 15000;
+const unsigned long MAX_RECORD_TIME = 600000;
 const unsigned long WARMUP_TIME = 15000;
 const unsigned long PIR_POLL_INTERVAL = 150;
 
-
-#define PIR_PIN 13
-#define STATUS_LED 33
-#define FLASH_LED_PIN 4
-#define PIR_ACTIVE_STATE LOW
-
-#define TIME_OFFSET 28800  // UTC+8
-
-// --- STORAGE SETTINGS ---
-const unsigned long FILE_RETENTION_SEC = 172800;  // 2 Days
-const unsigned long LOG_RETENTION_SEC = 172800;   // 2 Days
-const unsigned long CLEANUP_INTERVAL = 86400000;  // 24 Hours
-
-const unsigned long RECORD_EXTENSION_TIME = 10000;
-const unsigned long MAX_RECORD_TIME = 60000;
-const unsigned long WARMUP_TIME = 15000;
-const unsigned long PIR_POLL_INTERVAL = 150;
-
-// Pins
+// Camera Pins (AI-Thinker Model)
 #define PWDN_GPIO_NUM 32
 #define RESET_GPIO_NUM -1
 #define XCLK_GPIO_NUM 0
@@ -78,7 +62,7 @@ const unsigned long PIR_POLL_INTERVAL = 150;
 #define HREF_GPIO_NUM 23
 #define PCLK_GPIO_NUM 22
 
-// BLE
+// BLE UUIDs
 #define SERVICE_UUID "19B10000-E8F2-537E-4F6C-D104768A1214"
 #define SSID_CHAR_UUID "19B10001-E8F2-537E-4F6C-D104768A1214"
 #define PASS_CHAR_UUID "19B10002-E8F2-537E-4F6C-D104768A1214"
@@ -110,6 +94,7 @@ bool isArmed = false;
 unsigned long motionStopTime = 0;
 unsigned long recordingStartTime = 0;
 unsigned long bootTime = 0;
+unsigned long lastWifiCheck = 0; 
 
 bool sdOk = false;
 bool ntpOk = false;
@@ -125,6 +110,14 @@ unsigned long lastStorageCleanup = 0;
 // Loop Flags
 bool isRestarting = false;
 bool shouldVerifyAndSave = false;
+
+// --- Forward Declarations ---
+void uploadRecording(); 
+bool cameraInit();
+void cameraDeinit();
+void startRecording();
+void stopRecording();
+void captureFrame();
 
 String getLogTime() {
   struct tm tm;
@@ -265,6 +258,7 @@ bool initSD() {
   return (SD_MMC.cardType() != CARD_NONE);
 }
 
+// --- IMPROVED: Double Buffering Enabled ---
 bool cameraInit() {
   if (cameraReady) return true;
 
@@ -297,7 +291,15 @@ bool cameraInit() {
   config_cam.pixel_format = PIXFORMAT_JPEG;
   config_cam.frame_size = FRAMESIZE_VGA;
   config_cam.jpeg_quality = 10;
-  config_cam.fb_count = 1;
+
+  // --- DOUBLE BUFFERING CHECK ---
+  if (psramFound()) {
+    config_cam.fb_count = 2; // Smoother video
+    config_cam.grab_mode = CAMERA_GRAB_LATEST;
+  } else {
+    config_cam.fb_count = 1;
+    config_cam.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+  }
 
   if (esp_camera_init(&config_cam) != ESP_OK) {
     writeDebug("Camera Init Failed!");
@@ -514,6 +516,7 @@ void setup() {
 
       configTime(TIME_OFFSET, 0, "pool.ntp.org", "time.google.com");
       firebaseReady = true;
+      uploadRecording(); // Check for offline videos immediately
     } else {
       writeDebug("WiFi Fail -> BLE Mode");
       startBLEMode();
@@ -590,6 +593,24 @@ void loop() {
   }
 
   unsigned long now = millis();
+
+  // --- IMPROVED: Smart Watchdog (Only runs if we expect WiFi) ---
+  // Checks if we are in Station Mode AND have credentials before panicking
+  if (currentState == STATE_IDLE && WiFi.getMode() == WIFI_STA && wifi_ssid.length() > 0 && millis() - lastWifiCheck > 30000) {
+    lastWifiCheck = millis();
+    if (WiFi.status() != WL_CONNECTED) {
+      writeDebug("WiFi lost. Attempting reconnect...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+    }
+  }
+
+  // --- SELF-HEALING: Camera Health Check / Recovery ---
+  // If we are connected and idle, but camera is OFF (from a previous upload crash), turn it ON.
+  if (WiFi.status() == WL_CONNECTED && !cameraReady && currentState == STATE_IDLE) {
+      writeDebug("Restoring camera state...");
+      cameraInit();
+  }
 
   // Daily Cleanup
   if (now - lastStorageCleanup > CLEANUP_INTERVAL) {
@@ -743,6 +764,8 @@ void startRecording() {
 
   writeAviHeader(aviFile);
   writeDebug("Recording: " + currentFilePath);
+  
+  // Status LED: OFF = Busy/Recording
   digitalWrite(STATUS_LED, LOW);
 }
 
@@ -799,25 +822,86 @@ void stopRecording() {
 }
 
 void uploadRecording() {
+  // 1. Basic Checks
   if (!firebaseReady) {
-    writeDebug("No Firebase");
+    writeDebug("Skipping Upload: Firebase not ready");
     return;
   }
-  if (currentFilePath == "") return;
+  if (WiFi.status() != WL_CONNECTED) {
+    writeDebug("Skipping Upload: No WiFi");
+    return;
+  }
 
-  writeDebug("Uploading: " + currentFilePath);
-
+  // 2. Pause Camera (CRITICAL: Frees up RAM for heavy upload process)
   cameraDeinit();
   delay(200);
 
-  String remote = "/users/" + (owner_id == "" ? "public" : owner_id) + "/devices/" + device_id + "/videos/" + currentFilePath.substring(currentFilePath.lastIndexOf('/') + 1);
+  writeDebug("Checking SD for pending uploads...");
 
-  if (Firebase.Storage.upload(&fbdo, STORAGE_BUCKET, currentFilePath.c_str(), mem_storage_type_sd, remote.c_str(), "video/avi")) {
-    writeDebug("Upload Success!");
-  } else {
-    writeDebug("Upload Fail: " + fbdo.errorReason());
+  // 3. Open the recordings directory
+  File root = SD_MMC.open("/recordings");
+  if (!root || !root.isDirectory()) {
+    writeDebug("No recordings folder found");
+    // If no folder, we still need to restore the camera
+    cameraInit();
+    return;
   }
 
-  if (WiFi.status() == WL_CONNECTED) cameraInit();
-  currentFilePath = "";
+  // 4. Iterate through all files in the folder
+  while (true) {
+    File file = root.openNextFile();
+    
+    // If no more files, we are done
+    if (!file) break;
+
+    if (!file.isDirectory()) {
+      String filePath = String(file.path());
+      String fileName = String(file.name());
+
+      // Only process .avi files
+      if (filePath.endsWith(".avi")) {
+        writeDebug("Found pending file: " + fileName);
+
+        // Construct remote path
+        String remote = "/users/" + (owner_id == "" ? "public" : owner_id) + 
+                        "/devices/" + device_id + "/videos/" + fileName;
+
+        // Close the file handle before attempting upload (saves memory)
+        file.close();
+
+        // 5. Attempt Upload
+        if (Firebase.Storage.upload(&fbdo, STORAGE_BUCKET, filePath.c_str(), mem_storage_type_sd, remote.c_str(), "video/avi")) {
+          writeDebug("Upload Success! Deleting local copy.");
+          
+          // 6. DELETE on Success (Prevent duplicates)
+          SD_MMC.remove(filePath);
+          
+          // Restart directory scan to ensure clean iterator state
+          root.close();
+          root = SD_MMC.open("/recordings");
+          
+          // Verify WiFi is still alive before next file
+          if (WiFi.status() != WL_CONNECTED) {
+             writeDebug("WiFi lost during batch upload.");
+             break;
+          }
+          continue; 
+        } else {
+          writeDebug("Upload Failed: " + fbdo.errorReason());
+          // If one fails, stop the batch to save power/time and try again later
+          break; 
+        }
+      }
+    }
+    file.close();
+  }
+  
+  root.close();
+
+  // 7. Restore Camera for next motion event
+  // FIX: ALWAYS restore the camera, even if WiFi was lost, so we can record the next event locally.
+  writeDebug("Restoring camera after upload attempt...");
+  cameraInit(); 
+  
+  currentFilePath = ""; // Reset global tracker
 }
