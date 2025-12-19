@@ -148,7 +148,6 @@ class _BatchReviewDialogState extends State<BatchReviewDialog> {
                                           lastDetected: DateTime.now(),
                                         );
 
-                                        // --- FIX 1: Wait for result and update ---
                                         final result = await showDialog(
                                           context: context,
                                           builder: (_) => FoodItemDialog(
@@ -208,7 +207,6 @@ class _BatchReviewDialogState extends State<BatchReviewDialog> {
         ),
       ),
       actions: [
-        // --- FIX 2: Handle Adding Items ---
         TextButton.icon(
           icon: const Icon(Icons.add),
           label: const Text("Add New Item"),

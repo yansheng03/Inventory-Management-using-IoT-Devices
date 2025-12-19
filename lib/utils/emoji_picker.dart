@@ -1,7 +1,7 @@
 // lib/utils/emoji_picker.dart
 
 class EmojiPicker {
-  // --- FRUIT ---
+  // FRUIT
   static const Map<String, String> _fruitEmojis = {
     'apple': '🍎',
     'banana': '🍌',
@@ -20,13 +20,13 @@ class EmojiPicker {
     'strawberry': '🍓',
     'blueberry': '🫐',
     'kiwi': '🥝',
-    'tomato': '🍅', // Botanically a fruit
+    'tomato': '🍅',
     'coconut': '🥥',
     'avocado': '🥑',
     'pear': '🍐',
   };
 
-  // --- VEGETABLES ---
+  // VEGETABLES
   static const Map<String, String> _vegEmojis = {
     'potato': '🥔',
     'carrot': '🥕',
@@ -53,7 +53,7 @@ class EmojiPicker {
     'salad': '🥗',
   };
 
-  // --- MEAT ---
+  // MEAT
   static const Map<String, String> _meatEmojis = {
     'chicken': '🍗',
     'turkey': '🦃',
@@ -70,7 +70,7 @@ class EmojiPicker {
     'kebab': '🍢',
   };
 
-  // --- SEAFOOD ---
+  // SEAFOOD
   static const Map<String, String> _seafoodEmojis = {
     'fish': '🐟',
     'salmon': '🐟',
@@ -89,7 +89,7 @@ class EmojiPicker {
     'puffer': '🐡',
   };
 
-  // --- BAKERY ---
+  // BAKERY
   static const Map<String, String> _bakeryEmojis = {
     'bread': '🍞',
     'toast': '🍞',
@@ -111,18 +111,18 @@ class EmojiPicker {
     'custard': '🍮',
   };
 
-  // --- DAIRY ---
+  // DAIRY
   static const Map<String, String> _dairyEmojis = {
     'milk': '🥛',
     'cheese': '🧀',
     'butter': '🧈',
-    'cream': '🍦', // Ice cream / soft serve
+    'cream': '🍦',
     'ice cream': '🍨',
-    'yogurt': '🥣', // Closest visual
+    'yogurt': '🥣',
     'egg': '🥚',
   };
 
-  // --- leftovers / LEFTOVERS ---
+  // LEFTOVERS
   static const Map<String, String> _leftoversEmojis = {
     'pizza': '🍕',
     'burger': '🍔',
@@ -149,7 +149,7 @@ class EmojiPicker {
     'falafel': '🧆',
   };
 
-  // --- DRINKS ---
+  // DRINKS
   static const Map<String, String> _drinkEmojis = {
     'water': '💧',
     'coffee': '☕',
@@ -171,7 +171,7 @@ class EmojiPicker {
     'mate': '🧉',
   };
 
-  // --- CONDIMENTS ---
+  // CONDIMENTS
   static const Map<String, String> _condimentEmojis = {
     'salt': '🧂',
     'pepper': '🧂',
@@ -187,7 +187,7 @@ class EmojiPicker {
     'mayo': '🥚', // Ingredient association
   };
 
-  // --- OTHERS ---
+  // OTHERS
   static const Map<String, String> _otherEmojis = {
     'chocolate': '🍫',
     'candy': '🍬',
@@ -200,7 +200,7 @@ class EmojiPicker {
     'ice': '🧊',
   };
 
-  // --- CATEGORY DEFAULTS ---
+  // CATEGORY DEFAULTS
   static const Map<String, String> _categoryDefaults = {
     'fruit': '🍎',
     'vegetables': '🥬',
@@ -214,7 +214,7 @@ class EmojiPicker {
     'others': '🍽️',
   };
 
-  // --- LOGIC ---
+  // LOGIC
   static String getEmojiForItem(String itemName, String category) {
     String lowerName = itemName.toLowerCase();
 
@@ -235,7 +235,6 @@ class EmojiPicker {
 
     // 2. Search for keyword in name
     // We sort keys by length descending to match specific terms first 
-    // (e.g., match "sweet potato" before "potato")
     var sortedKeys = emojiMap.keys.toList()
       ..sort((a, b) => b.length.compareTo(a.length));
 

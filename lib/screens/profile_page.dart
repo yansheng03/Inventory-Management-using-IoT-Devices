@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:capstone_app/providers/theme_provider.dart';
 import 'package:capstone_app/services/firebase_service.dart';
 import 'package:capstone_app/providers/device_provider.dart'; 
-import 'package:capstone_app/providers/food_tracker_state.dart'; // NEW: Import State
+import 'package:capstone_app/providers/food_tracker_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -221,7 +221,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     final deviceProvider = Provider.of<DeviceProvider>(context); 
-    // --- NEW: Access FoodTrackerState ---
     final foodTrackerState = Provider.of<FoodTrackerState>(context);
     final user = firebaseService.currentUser;
 
@@ -229,7 +228,7 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ListView(
         children: [
-          // -- Profile Header --
+          // Profile Header
           Container(
             padding: const EdgeInsets.all(24),
             color: theme.colorScheme.primary.withAlpha(25),
@@ -256,7 +255,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          // -- Account Section --
+          // Account Section
           _buildSectionHeader('Account'),
           ListTile(
             leading: const Icon(Icons.edit_outlined),
@@ -275,7 +274,7 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
-          // -- Settings Section --
+          // Settings Section
           _buildSectionHeader('Settings'),
           SwitchListTile(
             secondary: const Icon(Icons.dark_mode_outlined),
@@ -286,7 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
-          // --- NEW: Auto-Accept Switch ---
+          // Auto-Accept Switch
           SwitchListTile(
             secondary: const Icon(Icons.check_circle_outline),
             title: const Text('Hide Batch Review Pop-up'),
@@ -313,7 +312,7 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
 
-          // -- Info Section --
+          // Info Section
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),
             title: const Text('User Manual'),
@@ -328,7 +327,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () => _showCustomAboutDialog(),
           ),
 
-          // -- Logout Button --
+          // Logout Button
           const SizedBox(height: 32),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -348,7 +347,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          // DELETE BUTTON
+          // Delete Button
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 40.0),
             child: ElevatedButton.icon(

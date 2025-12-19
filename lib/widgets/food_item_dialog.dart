@@ -67,7 +67,6 @@ class _FoodItemDialogState extends State<FoodItemDialog> {
           );
           await foodTrackerState.updateItem(updatedItem);
           
-          // --- FIX: Return the updated item ---
           if (mounted) Navigator.pop(context, updatedItem); 
 
         } else {
@@ -79,9 +78,7 @@ class _FoodItemDialogState extends State<FoodItemDialog> {
           );
           await foodTrackerState.addItem(newItem); 
           
-          // --- FIX: Return the new item ---
-          // Since Firestore generates the ID, we return a temp object for UI display
-          // Ideally, addItem would return the ID, but for the UI update, this is enough.
+          // Return the new item
           if (mounted) Navigator.pop(context, newItem);
         }
 

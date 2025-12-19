@@ -14,7 +14,6 @@ class FoodTrackerState extends ChangeNotifier {
   String _searchQuery = '';
   String _deviceId = '';
 
-  // --- NEW: Preference Flag ---
   bool _autoAcceptChanges = false;
 
   StreamSubscription? _inventorySubscription;
@@ -27,7 +26,6 @@ class FoodTrackerState extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
 
-  // --- NEW: Getter ---
   bool get autoAcceptChanges => _autoAcceptChanges;
 
   List<FoodItem> get filteredItems {
@@ -43,7 +41,6 @@ class FoodTrackerState extends ChangeNotifier {
 
   FoodTrackerState(this._service);
 
-  // --- NEW: Setter to toggle the setting ---
   void toggleAutoAccept(bool value) {
     _autoAcceptChanges = value;
     notifyListeners();
@@ -61,7 +58,7 @@ class FoodTrackerState extends ChangeNotifier {
           .getInventoryStream(_deviceId)
           .listen(
             (items) {
-              // --- UPDATED: Check preference before running logic ---
+              // Check preference before running logic
               if (_allItems.isNotEmpty && !_autoAcceptChanges) {
                 _checkForBatchChanges(_allItems, items);
               }
@@ -84,7 +81,7 @@ class FoodTrackerState extends ChangeNotifier {
   }
 
   void _checkForBatchChanges(List<FoodItem> oldItems, List<FoodItem> newItems) {
-    // If auto-accept is ON, we simply stop here.
+    // If auto-accept is ON, it stop here.
     if (_autoAcceptChanges) return;
 
     List<Map<String, dynamic>> changes = [];

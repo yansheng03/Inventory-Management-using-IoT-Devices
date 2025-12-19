@@ -48,8 +48,7 @@ class FirebaseService {
     await _auth.signOut();
   }
 
-  // --- Profile Management ---
-
+  // Profile Management
   Future<void> updateDisplayName(String newName) async {
     User? user = _auth.currentUser;
     if (user != null) {
@@ -66,8 +65,7 @@ class FirebaseService {
     }
   }
 
-  // --- Device Management ---
-
+  // Device Management
   Future<String?> getUserDevice() async {
     final userId = currentUserId;
     if (userId == null) return null;
@@ -106,7 +104,7 @@ class FirebaseService {
     }
   }
 
-  // --- Inventory Management ---
+  // Inventory Management
 
   Stream<List<FoodItem>> getInventoryStream(String deviceId) {
     final userId = currentUserId;
@@ -126,7 +124,7 @@ class FirebaseService {
   Future<void> updateFoodItem(FoodItem item) async {
     if (item.id.isEmpty) return;
     
-    // --- FIX: Delete if quantity <= 0 ---
+    // Delete if quantity <= 0
     if (item.quantity <= 0) {
       await deleteFoodItem(item.id);
     } else {
@@ -151,7 +149,7 @@ class FirebaseService {
     final snapshot = await query.get();
 
     if (snapshot.docs.isEmpty) {
-      // CREATE NEW ITEM
+      // Create New Item
       // Ensure we don't create items with <= 0 quantity
       if (item.quantity > 0) {
         await _db.collection('inventory').add({
@@ -165,7 +163,7 @@ class FirebaseService {
         });
       }
     } else {
-      // UPDATE EXISTING ITEM
+      // Update Existing Item
       final existingDoc = snapshot.docs.first;
       final existingQuantity = (existingDoc.data()['quantity'] ?? 0) as int;
       final newQuantity = existingQuantity + item.quantity;

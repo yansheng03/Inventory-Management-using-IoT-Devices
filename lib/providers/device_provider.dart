@@ -20,7 +20,6 @@ class DeviceProvider with ChangeNotifier {
   // Device-side logging state (from ESP32)
   bool _isLoggingEnabled = true;
 
-  // --- NEW: UI Visibility State ---
   bool _showDebugLogsUI = true; 
 
   String get deviceIp => _deviceIp;
@@ -33,7 +32,6 @@ class DeviceProvider with ChangeNotifier {
   Uint8List? get latestSnapshot => _latestSnapshot;
   bool get isLoggingEnabled => _isLoggingEnabled;
   
-  // --- NEW: Getter for UI Visibility ---
   bool get showDebugLogsUI => _showDebugLogsUI;
 
   final String _serviceName = '_http._tcp.local';
@@ -52,7 +50,6 @@ class DeviceProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- NEW: Toggle UI Visibility Only ---
   void toggleDebugLogsUI(bool value) {
     _showDebugLogsUI = value;
     notifyListeners();

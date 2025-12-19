@@ -1,4 +1,5 @@
 // lib/screens/ble_setup_page.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,7 +17,7 @@ class BleSetupPage extends StatefulWidget {
 }
 
 class _BleSetupPageState extends State<BleSetupPage> {
-  // --- UUIDs matching ESP32 Code ---
+  // UUIDs matching ESP32 Code
   final String serviceUuid = "19B10000-E8F2-537E-4F6C-D104768A1214";
   final String ssidCharUuid = "19B10001-E8F2-537E-4F6C-D104768A1214";
   final String passCharUuid = "19B10002-E8F2-537E-4F6C-D104768A1214";
@@ -37,7 +38,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
   String _statusMessage = 'Ready to scan';
 
   String? _deviceIdToUse; 
-  // REMOVED: Timer? _successTimer; (No longer needed, relying on real feedback)
   
   final FirebaseService _firebaseService = FirebaseService();
   StreamSubscription? _statusSubscription;
@@ -130,9 +130,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
       
       _connectionStateSubscription = _targetDevice!.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
-            // FIX: Do not assume success on disconnect. 
-            // If we were sending, we wait for a specific success message or failure state.
-            // If simply disconnected, we reset UI.
             if (!_isSending) {
                setState(() => _isConnected = false);
             }
@@ -165,7 +162,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
     String message = utf8.decode(value);
     debugPrint("BLE MSG: $message");
 
-    // NEW LOGIC: Handle specific states
     if (message.contains("SUCCESS")) {
        _handleSuccess();
     } else if (message.contains("FAILED")) {
@@ -180,7 +176,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
   void _handleSuccess() async {
     if (!mounted || !_isSending) return; 
     
-    // Update status to show we are finalizing
     setState(() => _statusMessage = "Connected! Registering with Cloud...");
     
     try {
@@ -281,8 +276,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
       _statusMessage = 'Sending configuration...';
     });
 
-    // NOTE: Removed fallback timer. We now rely strictly on the ESP32 response.
-
     try {
       String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
       if(currentUserId == null) throw Exception("Login required");
@@ -309,8 +302,6 @@ class _BleSetupPageState extends State<BleSetupPage> {
       await deviceIdChar.write(_deviceIdToUse!.codeUnits, withoutResponse: false);
 
     } catch (e) {
-      // GATT 133 is common on some phones, but usually, we shouldn't get it if logic is sound.
-      // If we do get it, we just reset the UI state.
       setState(() {
         _statusMessage = 'Write Error: $e';
         _isSending = false;

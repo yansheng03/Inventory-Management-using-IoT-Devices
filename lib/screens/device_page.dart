@@ -106,7 +106,6 @@ class _DevicePageState extends State<DevicePage> {
             child: ListView(
               padding: const EdgeInsets.all(20.0),
               children: [
-                // --- Status Card ---
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -168,7 +167,6 @@ class _DevicePageState extends State<DevicePage> {
 
                 const SizedBox(height: 30),
 
-                // --- Buttons or Connected UI ---
                 if (!provider.isDeviceFound) ...[
                   ElevatedButton.icon(
                     icon: const Icon(Icons.bluetooth_searching),
@@ -228,7 +226,7 @@ class _DevicePageState extends State<DevicePage> {
                     "Once the camera restarts, tap 'Find on WiFi' to start using it. Please allow some time for it to connect to your network before pressing it.",
                   ),
                 ] else ...[
-                  // --- Connected Controls ---
+
                   ElevatedButton.icon(
                     icon: const Icon(Icons.camera_alt),
                     label: const Text('Take Live Snapshot'),
@@ -274,7 +272,7 @@ class _DevicePageState extends State<DevicePage> {
                     onPressed: () => _confirmForgetDevice(context, provider),
                   ),
 
-                  // --- CHANGED: Check UI Preference before showing Logs ---
+                  // Check UI Preference before showing Logs
                   if (provider.showDebugLogsUI) ...[
                     const SizedBox(height: 30),
                     const Divider(),
@@ -290,7 +288,7 @@ class _DevicePageState extends State<DevicePage> {
   }
 }
 
-// --- Internal Widget for Log Viewing ---
+// Internal Widget for Log Viewing
 class DebugLogViewer extends StatefulWidget {
   final String ip;
   const DebugLogViewer({super.key, required this.ip});
@@ -364,7 +362,6 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
 
   @override
   Widget build(BuildContext context) {
-    // Access the provider to call functions
     final provider = Provider.of<DeviceProvider>(context, listen: false);
 
     return Container(
@@ -393,7 +390,7 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- CLEAR BUTTON ---
+                  // CLEAR BUTTON
                   IconButton(
                     icon: const Icon(
                       Icons.delete_sweep,
@@ -441,7 +438,7 @@ class _DebugLogViewerState extends State<DebugLogViewer> {
                   ),
                   const SizedBox(width: 15),
 
-                  // --- AUTO SCROLL BUTTON ---
+                  // AUTO SCROLL BUTTON
                   IconButton(
                     icon: Icon(
                       _autoScroll ? Icons.lock_clock : Icons.history,

@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // --- BRANDING HEADER ---
+              // BRANDING HEADER
               Icon(Icons.kitchen, size: 80, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               const Text(
@@ -96,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 48),
-              // -----------------------
 
               Text(
                 _isLogin ? 'Welcome Back!' : 'Create Account',

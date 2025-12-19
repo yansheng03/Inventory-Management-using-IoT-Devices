@@ -41,12 +41,11 @@ class _FoodHomePageState extends State<FoodHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = context.read<FoodTrackerState>();
       state.initialize();
-      // --- ADDED: Only this listener was needed ---
       _setupBatchListener(state);
     });
   }
 
-  // --- ADDED: Logic to trigger the pop-up ---
+  // Logic to trigger the pop-up
   void _setupBatchListener(FoodTrackerState state) {
     _batchSubscription = state.batchEventStream.listen((changes) {
       if (mounted && changes.isNotEmpty) {
@@ -141,7 +140,6 @@ class _FoodHomePageState extends State<FoodHomePage> {
     );
   }
 
-  // --- RESTORED: Your original UI layout ---
   Widget _buildHomePageContent(FoodTrackerState appState) {
     return Column(
       children: [

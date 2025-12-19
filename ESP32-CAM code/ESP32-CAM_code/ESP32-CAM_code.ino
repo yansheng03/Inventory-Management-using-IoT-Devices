@@ -32,7 +32,7 @@
 
 #define PIR_ACTIVE_STATE LOW 
 
-#define TIME_OFFSET 28800  // UTC+8 (Singapore/Malaysia)
+#define TIME_OFFSET 28800  // UTC+8 (Malaysia Time)
 
 // --- STORAGE SETTINGS ---
 const unsigned long FILE_RETENTION_SEC = 172800;  // 2 Days
@@ -111,7 +111,7 @@ unsigned long lastStorageCleanup = 0;
 bool isRestarting = false;
 bool shouldVerifyAndSave = false;
 
-// --- Forward Declarations ---
+// Declarations
 void uploadRecording(); 
 bool cameraInit();
 void cameraDeinit();
@@ -258,7 +258,6 @@ bool initSD() {
   return (SD_MMC.cardType() != CARD_NONE);
 }
 
-// --- IMPROVED: Double Buffering Enabled ---
 bool cameraInit() {
   if (cameraReady) return true;
 
@@ -594,7 +593,7 @@ void loop() {
 
   unsigned long now = millis();
 
-  // --- IMPROVED: Smart Watchdog (Only runs if we expect WiFi) ---
+  // Smart WiFi Watchdog (Only runs if when WiFi is expected)
   // Checks if we are in Station Mode AND have credentials before panicking
   if (currentState == STATE_IDLE && WiFi.getMode() == WIFI_STA && wifi_ssid.length() > 0 && millis() - lastWifiCheck > 30000) {
     lastWifiCheck = millis();
@@ -605,8 +604,7 @@ void loop() {
     }
   }
 
-  // --- SELF-HEALING: Camera Health Check / Recovery ---
-  // If we are connected and idle, but camera is OFF (from a previous upload crash), turn it ON.
+  // If it is connected and idle, but camera is OFF (from a previous upload crash), turn it ON.
   if (WiFi.status() == WL_CONNECTED && !cameraReady && currentState == STATE_IDLE) {
       writeDebug("Restoring camera state...");
       cameraInit();
@@ -618,7 +616,7 @@ void loop() {
     if (currentState == STATE_IDLE && ntpOk) cleanupOldFiles();
   }
 
-  // Motion Detection - ONLY IF CAMERA IS READY
+  // Motion Detection if the camera is ready
   if (now - lastPirPoll > PIR_POLL_INTERVAL) {
     lastPirPoll = now;
     if (isArmed && cameraReady && currentState == STATE_IDLE && digitalRead(PIR_PIN) == PIR_ACTIVE_STATE) {
@@ -832,7 +830,7 @@ void uploadRecording() {
     return;
   }
 
-  // 2. Pause Camera (CRITICAL: Frees up RAM for heavy upload process)
+  // 2. Pause Camera to free up RAM
   cameraDeinit();
   delay(200);
 
@@ -842,7 +840,7 @@ void uploadRecording() {
   File root = SD_MMC.open("/recordings");
   if (!root || !root.isDirectory()) {
     writeDebug("No recordings folder found");
-    // If no folder, we still need to restore the camera
+    // If no folder, still need to restore the camera
     cameraInit();
     return;
   }
@@ -851,7 +849,7 @@ void uploadRecording() {
   while (true) {
     File file = root.openNextFile();
     
-    // If no more files, we are done
+    // If no more files, break
     if (!file) break;
 
     if (!file.isDirectory()) {
@@ -899,7 +897,6 @@ void uploadRecording() {
   root.close();
 
   // 7. Restore Camera for next motion event
-  // FIX: ALWAYS restore the camera, even if WiFi was lost, so we can record the next event locally.
   writeDebug("Restoring camera after upload attempt...");
   cameraInit(); 
   
