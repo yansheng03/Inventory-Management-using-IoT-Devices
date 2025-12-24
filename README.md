@@ -2,7 +2,8 @@
 
 FIT is an intelligent IoT-based inventory management system designed to automate kitchen tracking. By combining an ESP32-CAM, Google Vertex AI (Gemini), Firebase, and a Flutter mobile app, FIT automatically detects when items are added or removed from your fridge and categorizes them in real-time.
 
-🌟 Features
+
+# Features
 
 Automated Tracking: Detects motion and records video/images of items entering or leaving the fridge.
 
@@ -18,7 +19,8 @@ Cost & Waste Control: Helps prevent food waste and saves money by tracking what 
 
 Cross-Platform App: Mobile interface built with Flutter (Android/iOS).
 
-📂 Repository Structure
+
+# Repository Structure
 
 ai_service/: Python FastAPI backend that interfaces with Google Vertex AI.
 
@@ -27,7 +29,7 @@ functions/: TypeScript Cloud Functions to handle storage triggers and database u
 lib/: Flutter mobile application source code.
 
 
-Prerequisites
+# Prerequisites
 
 Hardware:
 
@@ -44,6 +46,7 @@ Breadboard
 Jumper Wire
 
 <img width="720" height="720" alt="image" src="https://github.com/user-attachments/assets/2db71c47-b92a-4ff1-881b-9579301e8438" />
+
 
 Software & Tools:
 
